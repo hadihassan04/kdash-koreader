@@ -767,27 +767,28 @@ Pages.today = {
         local w = d.weather
         if w and w.days and w.days[1] then
             local d0 = w.days[1]
-            local lw = math.floor(CW * 0.5)
-            local now = VerticalGroup:new{ align = "left",
-                HorizontalGroup:new{ align = "center",
-                    icon(weatherIcon(w.desc), 64),
-                    hgap(18), text(w.temp .. "°", { style = "display", size = 88, tight = true }) },
-                vgap(10),
-                text(w.desc, { style = "semibold", size = 30, width = lw }) }
-            local fw = CW - lw
+            -- The facts column takes the width its lines need; the rest is for
+            -- the icon, temperature and description, side by side
+            local FS = 23
             local function fact(ic, s)
-                return HorizontalGroup:new{ align = "center",
-                    text(s, { size = 22, width = fw - px(34) }), icon(ic, 20) }
+                return HorizontalGroup:new{ align = "center", text(s, { size = FS }), icon(ic, 20) }
             end
             local facts = VerticalGroup:new{ align = "right",
                 fact("thermometer", string.format("%s %d°, %s %d°", _("High"), d0.hi, _("low"), d0.lo)),
                 vgap(4),
                 fact("wind", string.format("%s %d°, %d km/h", _("Feels"), w.feels, w.wind)),
                 vgap(4),
-                fact("sunrise", _("Sunrise") .. " " .. d0.sunrise),
-                vgap(4),
-                fact("sunset", _("Sunset") .. " " .. d0.sunset) }
-            rows[#rows + 1] = row(HorizontalGroup:new{ align = "center", box(now, lw), cell(facts, fw, "right") },
+                HorizontalGroup:new{ align = "center",   -- sunrise and sunset share a line
+                    text(d0.sunrise, { size = FS }), icon("sunrise", 20), hgap(10),
+                    text(d0.sunset, { size = FS }), icon("sunset", 20) } }
+            local fw = math.min(facts:getSize().w, math.floor(CW * 0.5))
+            local lw = CW - fw - px(12)
+            local now = HorizontalGroup:new{ align = "center",
+                icon(weatherIcon(w.desc), 64),
+                hgap(18), text(w.temp .. "°", { style = "display", size = 88, tight = true }) }
+            now = HorizontalGroup:new{ align = "center", now, hgap(14),
+                para(w.desc, { style = "semibold", size = 30, width = lw - now:getSize().w - px(14) }) }
+            rows[#rows + 1] = row(HorizontalGroup:new{ align = "center", box(now, lw), cell(facts, CW - lw, "right") },
                                   function() info(weatherDetail(d0)) end, 14)
             local hours = HorizontalGroup:new{ align = "top" }
             local n = #(w.hours or {})

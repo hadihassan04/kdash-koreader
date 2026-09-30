@@ -39,3 +39,26 @@ jobs:
           git add -A
           git commit -qm "Render $(date -u +%Y-%m-%dT%H:%MZ)"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" out
+      # Screenshots for the companion page, drawn by KOReader with the plugin so
+      # they match the Kindle exactly. After data.json is out, so the Kindle
+      # never waits for them; a failure here doesn't fail the render.
+      - uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/koreader-app
+          key: koreader-linux-x86_64-2
+      - name: Page previews
+        id: preview
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./preview.sh
+      - name: Publish the previews
+        if: steps.preview.outcome == 'success'
+        continue-on-error: true
+        working-directory: out
+        run: |
+          git add -A
+          git commit -qm "Previews $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" out
+

@@ -241,12 +241,12 @@
       <section>
         <p class="kicker">On the Kindle now</p>
         <h2 id="lead-head">The front page</h2>
-        <p class="dek" id="lead-dek">What the Kindle's today page shows, from the latest data.json.</p>
+        <p class="dek" id="lead-dek">What the Kindle shows, page by page.</p>
         <figure class="figure">
           <div class="frame" id="frame"><div class="empty">Loading…</div></div>
           <figcaption>
             <span id="caption"></span>
-            <span class="nav"><button class="link" id="refresh" type="button">Refresh now</button></span>
+            <span class="nav"><button class="link" id="prev" type="button">← Prev</button><button class="link" id="next" type="button">Next →</button><button class="link" id="refresh" type="button">Refresh now</button></span>
           </figcaption>
           <p class="credit" id="credit"></p>
         </figure>
@@ -672,11 +672,37 @@ function drawFront(d) {
   $("frame").replaceChildren(card);
   $("caption").textContent = d.location ? "Weather for " + d.location + "." : "";
 }
+// The render workflow also saves a screenshot of every page, drawn by KOReader
+// with the plugin (preview/ on the out branch), so these are the Kindle's pages
+// exactly. Without them (older generator, or not built yet) the today page is
+// sketched from data.json instead.
+let shots = [], shot = 0;
+function drawShot() {
+  const s = shots[shot];
+  $("frame").replaceChildren(el("img", { src: s.url, alt: `Kindle page ${shot + 1}: ${s.title}` }));
+  $("caption").textContent = `Page ${shot + 1} of ${shots.length}. ${s.title}.`;
+  $("prev").disabled = shot === 0; $("next").disabled = shot === shots.length - 1;
+}
+$("prev").onclick = () => { if (shot > 0) { shot--; drawShot(); } };
+$("next").onclick = () => { if (shot < shots.length - 1) { shot++; drawShot(); } };
+async function loadShots() {
+  const list = (await readOut("preview/pages.json", "json")).pages || [];
+  const got = await Promise.all(list.map(async (p) => ({
+    title: (PAGE_INFO[p.name] || [p.name])[0],
+    url: URL.createObjectURL(await readOut("preview/" + p.file, "blob")),
+  })));
+  for (const s of shots) URL.revokeObjectURL(s.url);
+  shots = got; shot = Math.min(shot, shots.length - 1);
+  if (shots.length) drawShot();
+  return shots.length > 0;
+}
 async function loadFront() {
   try {
     const d = await readOut("data.json", "json");
     $("credit").textContent = "Updated " + new Date(d.updated).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" });
-    drawFront(d);
+    const exact = await loadShots().catch(() => false);
+    $("prev").hidden = $("next").hidden = !exact;
+    if (!exact) drawFront(d);
     const r = (d.pages || []).find((p) => p.name === "reading");
     drawBriefs(r && r.data && r.data.sections);
   } catch (e) {
@@ -693,11 +719,15 @@ $("refresh").onclick = async () => {
     const before = await sha().catch(() => "");
     await gh("/actions/workflows/render.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main" }) });
     status("Rebuilding data.json…");
-    for (let i = 0; i < 24; i++) {
+    // data.json lands first (what the Kindle waits for), the page previews ~15 s later
+    let seen = 0;
+    for (let i = 0, last = before; i < 24; i++) {
       await new Promise((r) => setTimeout(r, 5000));
-      if ((await sha().catch(() => before)) !== before) { status("Updated."); await loadFront(); return; }
+      const now = await sha().catch(() => last);
+      if (now !== last) { last = now; seen++; await loadFront(); status(seen === 1 ? "Updated. Drawing the pages…" : "Updated."); }
+      if (seen === 2 || (seen === 1 && i >= 10)) { if (seen === 1) status("Updated."); return; }
     }
-    status("The rebuild is taking long. Check the repo's Actions tab.", true);
+    if (!seen) status("The rebuild is taking long. Check the repo's Actions tab.", true);
   } catch (e) {
     status(e.status === 403 || e.status === 404 ? "The token can't start the workflow. It needs Actions: Read and write." : "Couldn't refresh: " + e.message, true);
   } finally { btn.disabled = false; }

@@ -6,8 +6,8 @@ location:                         # for the weather (Open-Meteo, no key needed)
   lon: -0.1278
 
 # Page order, countdowns, the dots page, feeds and arXiv searches are in
-# data/settings.json, which the companion web page (portal/ in kdash-koreader)
-# edits. You can edit it by hand too.
+# data/settings.json, which the companion web page (portal/) edits.
+# You can edit it by hand too.
 
 agenda_days: 7
 # Calendar events whose title contains one of these are marked as deadlines

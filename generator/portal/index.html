@@ -9,9 +9,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Libre+Caslon+Display&family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 <!--
-  Companion page for kdash (github.com/hadihassan04/kdash-koreader). Static, with
-  no data of its own: it reads and writes your data repo through the GitHub API,
-  with the repo name and a token you enter once (kept in this browser only).
+  Companion page for kdash (github.com/hadihassan04/kdash-koreader), published by
+  the data repo's own GitHub Pages. Static, with no data of its own: it reads and
+  writes that repo through the GitHub API with a token you paste in once (kept in
+  this browser only).
   Edits data/settings.json and data/todos.md; each save is a commit, which
   rebuilds data.json for the Kindle.
 -->
@@ -220,15 +221,15 @@
   <main id="signin" class="signin" hidden>
     <p class="kicker">Before you begin</p>
     <h2>Sign in with a GitHub token</h2>
-    <p class="dek">This page has no data of its own. It reads and edits your data repo directly, and keeps the repo name and token in this browser only.</p>
+    <p class="dek">This page has no data of its own. It reads and edits <b id="repo-name">your data repo</b> directly, and keeps the token in this browser only.</p>
     <ol>
       <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>.</li>
-      <li>Repository access: only your data repo (the one made from <a href="https://github.com/hadihassan04/kdash-koreader/tree/main/generator" target="_blank" rel="noopener">the generator</a>).</li>
+      <li>Repository access: only this repo.</li>
       <li>Permissions: <b>Contents</b> and <b>Actions</b>, both <b>Read and write</b>. The Kindle can use the same token.</li>
       <li>Generate, copy, and paste it below.</li>
     </ol>
     <form class="add" id="signin-form">
-      <input class="field small" id="repo" autocomplete="off" spellcheck="false" placeholder="owner/repo" aria-label="Data repo, owner/name" required>
+      <input class="field small" id="repo" autocomplete="off" spellcheck="false" placeholder="owner/repo" aria-label="Data repo, owner/name" hidden>
       <input class="field small" id="token" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub token" required>
       <button class="link" type="submit">Sign in</button>
     </form>
@@ -327,8 +328,10 @@
 
 <script>
 "use strict";
-// The data repo ("owner/name") and token are entered once and kept in this
-// browser. ?repo=owner/name in the address fills the repo in.
+// Served from https://<owner>.github.io/<repo>/, so the repo comes from the
+// address. Opened any other way (a local file), it asks for owner/name too.
+const FROM_URL = location.hostname.endsWith(".github.io") && location.pathname.split("/")[1]
+  ? location.hostname.split(".")[0] + "/" + location.pathname.split("/")[1] : "";
 let REPO = "", API = "";
 function setRepo(r) { REPO = r; API = "https://api.github.com/repos/" + r; }
 const PAGE_INFO = {
@@ -356,8 +359,10 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
-let token = store.get("kdash-token");
-setRepo(new URLSearchParams(location.search).get("repo") || store.get("kdash-repo") || "");
+setRepo(FROM_URL || store.get("kdash-repo") || "");
+// One token per repo: all of an owner's Pages sites share this browser storage
+const tokenKey = () => "kdash-token:" + REPO;
+let token = REPO ? store.get(tokenKey()) : null;
 
 // ------------------------------------------------------------------ status
 let statusTimer;
@@ -728,18 +733,20 @@ $("today").textContent = new Date().toLocaleDateString("en-US",
 function showSignin(msg) {
   $("paper").hidden = true; $("nav").hidden = true; $("signin").hidden = false;
   $("repo").value = REPO;
+  $("repo").hidden = !!FROM_URL;
+  $("repo-name").textContent = REPO || "your data repo";
   $("signin-error").textContent = msg || "";
 }
 $("signin-form").onsubmit = (e) => {
   e.preventDefault();
-  const r = $("repo").value.trim().replace(/^https:\/\/github\.com\//, "").replace(/\/+$/, "");
+  const r = FROM_URL || $("repo").value.trim().replace(/^https:\/\/github\.com\//, "").replace(/\/+$/, "");
   const v = $("token").value.trim();
   if (!/^[\w.-]+\/[\w.-]+$/.test(r)) { $("signin-error").textContent = "The repo is owner/name, e.g. octocat/my-kdash-data."; return; }
   if (!v) return;
-  setRepo(r); store.set("kdash-repo", r);
-  token = v; store.set("kdash-token", v); boot();
+  setRepo(r); if (!FROM_URL) store.set("kdash-repo", r);
+  token = v; store.set(tokenKey(), v); boot();
 };
-$("signout").onclick = () => { store.del("kdash-token"); token = null; showSignin(); };
+$("signout").onclick = () => { store.del(tokenKey()); token = null; showSignin(); };
 
 async function boot() {
   if (!token || !REPO) { showSignin(); return; }
@@ -752,7 +759,7 @@ async function boot() {
     register("data/todos.md", t.sha, buildTodos, "Portal: update to-dos");
   } catch (e) {
     if (e.status === 401 || e.status === 403 || e.status === 404) {
-      store.del("kdash-token"); token = null;
+      store.del(tokenKey()); token = null;
       showSignin(e.status === 404 && token
         ? "Couldn't find data/settings.json and data/todos.md in " + REPO + " (" + e.message + "). Check the repo name, and that the token has access to it with Contents: Read and write."
         : "That token can't read the repo (" + e.message + "). Check it has access to " + REPO + " with Contents: Read and write.");

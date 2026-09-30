@@ -35,13 +35,18 @@ A page with nothing set up (no calendar, no photos...) hides itself.
 6. Make a fine-grained token (github.com/settings/personal-access-tokens/new):
    Repository access "Only select repositories" > this repo; permissions
    **Contents** and **Actions**, read and write.
-7. On the Kindle, set the repo (`owner/name`) and the token in Tools > Dashboard
+7. Optional, the companion page: Settings > Pages > Source: **GitHub Actions**,
+   then Actions > Deploy portal > Run workflow. It's then at
+   `https://<you>.github.io/<this-repo>/` and asks only for the token. GitHub
+   Pages on a private repo needs a paid plan (Pro or Team); without one, open
+   `portal/index.html` from a download of the repo, and it asks for the repo
+   name as well.
+8. On the Kindle, set the repo (`owner/name`) and the token in Tools > Dashboard
    (kdash), or put them in `koreader/kdash/repo.txt` and `koreader/kdash/token.txt`.
 
 ## Everyday use
-- The companion page, https://hadihassan04.github.io/kdash-koreader/, edits
-  to-dos and `data/settings.json` (page order, countdowns, dots, feeds, arXiv)
-  from any browser. Sign in with this repo's name and the same token.
+- The companion page edits to-dos and `data/settings.json` (page order,
+  countdowns, dots, feeds, arXiv) from any browser.
 - Tick, add and delete to-dos and habits on the Kindle; it commits the files here.
   You can also edit them in the GitHub app: every push rebuilds `data.json`.
 - To test changes on a computer: `pip install -r requirements.txt`, then

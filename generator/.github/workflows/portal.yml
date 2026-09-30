@@ -1,11 +1,11 @@
 name: Deploy portal
 
-# Publishes portal/ (a static page with no data in it) to GitHub Pages. Each
-# visitor signs in with their own data repo and token, kept in their browser.
+# Publishes portal/, the companion page, to this repo's GitHub Pages. The page
+# holds no data: it reads and edits this repo with a token kept in the browser.
 on:
   push:
     branches: [main]
-    paths: ["portal/**", ".github/workflows/pages.yml"]
+    paths: ["portal/**", ".github/workflows/portal.yml"]
   workflow_dispatch:
 
 permissions:

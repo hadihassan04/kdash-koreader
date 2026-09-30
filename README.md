@@ -55,11 +55,12 @@ has the steps. Anything else that writes the same JSON works too. Branch,
 workflow and refresh timings are constants at the top of `kdash.koplugin/main.lua`.
 
 ## Companion web page
-https://hadihassan04.github.io/kdash-koreader/ edits the data repo from a phone or
-computer: add and tick to-dos, set countdowns and the dots page, reorder or hide
-pages, edit feeds and arXiv searches, see a summary of today's data and start a
-refresh. Sign in with the data repo's name and the same token as the Kindle; both
-stay in that browser. The page is `portal/index.html`, a single static file.
+The data repo publishes its own companion page on GitHub Pages
+(`https://<you>.github.io/<data-repo>/`): add and tick to-dos, set countdowns and
+the dots page, reorder or hide pages, edit feeds and arXiv searches, see a
+summary of today's data and start a refresh. It only asks for the token (the
+same one as the Kindle), kept in that browser. It's `generator/portal/`; see
+[generator/README.md](generator/README.md) to switch it on.
 
 ## Install
 First set up the data repo (see above and `generator/README.md`). Then:

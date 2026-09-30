@@ -57,8 +57,8 @@ workflow and refresh timings are constants at the top of `kdash.koplugin/main.lu
 ## Companion web page
 https://hadihassan04.github.io/kdash-koreader/ edits the data repo from a phone or
 computer: add and tick to-dos, set countdowns and the dots page, reorder or hide
-pages, edit feeds and arXiv searches, flip through exact screenshots of the
-Kindle's pages (the generator has KOReader draw them) and start a refresh. Sign in with the data repo's name and the same token as the Kindle; both
+pages, edit feeds and arXiv searches, see a summary of today's data and start a
+refresh. Sign in with the data repo's name and the same token as the Kindle; both
 stay in that browser. The page is `portal/index.html`, a single static file.
 
 ## Install

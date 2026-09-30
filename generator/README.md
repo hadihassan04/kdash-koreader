@@ -17,12 +17,6 @@ for a refresh or you push a change. It needs no server and no API keys.
 
 A page with nothing set up (no calendar, no photos...) hides itself.
 
-After publishing `data.json`, the workflow also runs KOReader itself (the Linux
-build, with the plugin) to screenshot every page into `preview/` on the `out`
-branch. The companion page shows those, so they are exactly what the Kindle
-draws. That step takes about 10 seconds, runs after the Kindle already has its
-data, and can fail without affecting it (`preview.sh`).
-
 ## Set up
 1. Create a new **private** repo on GitHub. It will hold your to-dos, habits,
    photos and settings.

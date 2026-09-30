@@ -776,6 +776,33 @@ local function errorRows(rows, ...)
     end
 end
 
+-- "Mostly clear" -> "Mostly\nclear": the words split into two lines of about
+-- equal length, in the largest size (down to 18) at which both fit in h x w
+local function descLines(s, h, w)
+    local words = {}
+    for word in (s or ""):gmatch("%S+") do words[#words + 1] = word end
+    local best, best_len = s or "", math.huge
+    for i = 1, #words - 1 do
+        local a, b = table.concat(words, " ", 1, i), table.concat(words, " ", i + 1)
+        local len = math.max(#a, #b)
+        if len < best_len then best, best_len = a .. "\n" .. b, len end
+    end
+    local t
+    for size = 30, 18, -1 do
+        t = TextBoxWidget:new{ text = best, face = face("semibold", size), fgcolor = INK,
+                               width = w, line_height = 0 }
+        local fits = t:getSize().h <= h
+        if fits then
+            for __, line in ipairs({ best:match("([^\n]*)\n?(.*)") }) do
+                if text(line, { style = "semibold", size = size, width = math.huge }):getSize().w > w then fits = false end
+            end
+        end
+        if fits then return t, size end
+        if size > 18 then t:free() end
+    end
+    return t, 18
+end
+
 Pages.today = {
     -- Masthead: huge day number, weekday, month and year
     masthead = function(d, all, avail_w)
@@ -808,11 +835,18 @@ Pages.today = {
                     text(d0.sunset, { size = FS }), icon("sunset", 20) } }
             local fw = math.min(facts:getSize().w, math.floor(CW * 0.5))
             local lw = CW - fw - px(12)
-            local now = HorizontalGroup:new{ align = "center",
-                icon(weatherIcon(w.desc), 64),
-                hgap(18), text(w.temp .. "°", { style = "display", size = 88, tight = true }) }
-            now = HorizontalGroup:new{ align = "center", now, hgap(14),
-                para(w.desc, { style = "semibold", size = 30, width = lw - now:getSize().w - px(14) }) }
+            -- The description sits right of the digits, in two lines ("Mostly" /
+            -- "clear") that together are no taller than the digits, tops level
+            local temp = text(w.temp .. "°", { style = "display", size = 88, tight = true })
+            local ic = icon(weatherIcon(w.desc), 64)
+            local dw = lw - ic:getSize().w - px(18) - temp:getSize().w - px(14)
+            local desc, dsize = descLines(w.desc, temp:getSize().h, dw)
+            -- A text box starts with the font's space above capitals; lower the
+            -- digits by that much so the capitals line up with the digits' tops
+            local lifted = FrameContainer:new{ bordersize = 0, padding = 0,
+                                               padding_top = math.floor(px(dsize) * 0.46), temp }
+            local now = HorizontalGroup:new{ align = "center", ic, hgap(18),
+                HorizontalGroup:new{ align = "top", lifted, hgap(14), desc } }
             rows[#rows + 1] = row(HorizontalGroup:new{ align = "center", box(now, lw), cell(facts, CW - lw, "right") },
                                   function() info(weatherDetail(d0)) end, 14)
             local hours = HorizontalGroup:new{ align = "top" }

@@ -134,7 +134,7 @@ def page_quote(c, d):
 READY = {
     "agenda": lambda c: sources.has_calendar(c),
     "weather": lambda c: sources.has_location(c),
-    "todos": lambda c: bool(sources.todos(c)),
+    # todos always shows, even empty: its + button is how you add the first one
     "countdowns": lambda c: bool(c.cfg.get("countdowns")) or sources.has_calendar(c),
     "dots": lambda c: bool((c.cfg.get("dots") or {}).get("end")),
     "reading": lambda c: c.demo or bool(c.cfg.get("feeds") or c.cfg.get("arxiv")),

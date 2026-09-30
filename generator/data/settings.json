@@ -1,0 +1,44 @@
+{
+  "pages": [
+    "today",
+    "quote",
+    "agenda",
+    "weather",
+    "todos",
+    "countdowns",
+    "dots",
+    "reading",
+    "habits",
+    "photo"
+  ],
+  "countdowns": [
+    {
+      "name": "New Year",
+      "date": "2027-01-01"
+    }
+  ],
+  "dots": {
+    "name": "in 2026",
+    "start": "2026-01-01",
+    "end": "2027-01-01"
+  },
+  "feeds": [
+    {
+      "name": "BBC World",
+      "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "max": 4
+    },
+    {
+      "name": "Hacker News",
+      "url": "https://hnrss.org/frontpage",
+      "max": 4
+    }
+  ],
+  "arxiv": [
+    {
+      "name": "Machine learning",
+      "query": "cat:cs.LG",
+      "max": 3
+    }
+  ]
+}

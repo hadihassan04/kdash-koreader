@@ -54,6 +54,13 @@ Copy it into your own private repo; [generator/README.md](generator/README.md)
 has the steps. Anything else that writes the same JSON works too. Branch,
 workflow and refresh timings are constants at the top of `kdash.koplugin/main.lua`.
 
+## Companion web page
+https://hadihassan04.github.io/kdash-koreader/ edits the data repo from a phone or
+computer: add and tick to-dos, set countdowns and the dots page, reorder or hide
+pages, edit feeds and arXiv searches, see what the today page shows and start a
+refresh. Sign in with the data repo's name and the same token as the Kindle; both
+stay in that browser. The page is `portal/index.html`, a single static file.
+
 ## Install
 First set up the data repo (see above and `generator/README.md`). Then:
 1. Install KOReader (https://github.com/koreader/koreader/releases; for a

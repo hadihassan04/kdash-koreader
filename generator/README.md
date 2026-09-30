@@ -22,8 +22,9 @@ A page with nothing set up (no calendar, no photos...) hides itself.
    photos and settings.
 2. Copy everything in this folder, including `.github/`, to the root of that repo
    and push it to `main`.
-3. Edit `config.yaml`: your `timezone`, `location` (name, lat, lon), and what
-   you want on the countdowns, dots and reading pages.
+3. Edit `config.yaml` (your `timezone` and `location`: name, lat, lon) and
+   `data/settings.json` (pages, countdowns, dots, feeds, arXiv), or use the
+   companion page for the second.
 4. Add your calendar: in the repo, Settings > Secrets and variables > Actions >
    **New repository secret**, name `ICS_URLS`, value your calendar's secret iCal
    link (Google Calendar: Settings > your calendar > "Secret address in iCal
@@ -38,12 +39,14 @@ A page with nothing set up (no calendar, no photos...) hides itself.
    (kdash), or put them in `koreader/kdash/repo.txt` and `koreader/kdash/token.txt`.
 
 ## Everyday use
+- The companion page, https://hadihassan04.github.io/kdash-koreader/, edits
+  to-dos and `data/settings.json` (page order, countdowns, dots, feeds, arXiv)
+  from any browser. Sign in with this repo's name and the same token.
 - Tick, add and delete to-dos and habits on the Kindle; it commits the files here.
   You can also edit them in the GitHub app: every push rebuilds `data.json`.
 - To test changes on a computer: `pip install -r requirements.txt`, then
   `python render.py` (real data; set `ICS_URLS` in the environment for the
   calendar) or `python render.py --demo` (sample data, no network). The output
   is in `out/`.
-- `data/settings.json`, if present, overrides `pages`, `countdowns`, `dots`,
-  `feeds` and `arxiv` from `config.yaml`. That is handy for a script or web page
-  that edits settings without touching the YAML.
+- `pages`, `countdowns`, `dots`, `feeds` and `arxiv` can also go in
+  `config.yaml`; `data/settings.json` wins where both have a key.

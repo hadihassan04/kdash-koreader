@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>kdash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Libre+Caslon+Display&family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<!--
+  Companion page for kdash (github.com/hadihassan04/kdash-koreader). Static, with
+  no data of its own: it reads and writes your data repo through the GitHub API,
+  with the repo name and a token you enter once (kept in this browser only).
+  Edits data/settings.json and data/todos.md; each save is a commit, which
+  rebuilds data.json for the Kindle.
+-->
+<style>
+  :root {
+    --paper:#fff; --ink:#121212; --body:#333; --mid:#5a5a5a; --faint:#8a8a8a;
+    --rule:#dfdfdf; --heavy:#121212; --wash:#f7f7f5; --accent:#326891;
+    --display:"Libre Caslon Display", "Times New Roman", serif;
+    --serif:"Source Serif 4", Georgia, serif;
+    --sans:"Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    --black:"UnifrakturMaguntia", "Old English Text MT", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#121212; --ink:#ededeb; --body:#cfcfcc; --mid:#a3a3a0; --faint:#77776f;
+      --rule:#2c2c2a; --heavy:#ededeb; --wash:#1b1b1a; --accent:#8db5d6;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#121212; --ink:#ededeb; --body:#cfcfcc; --mid:#a3a3a0; --faint:#77776f;
+    --rule:#2c2c2a; --heavy:#ededeb; --wash:#1b1b1a; --accent:#8db5d6;
+  }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--paper); color:var(--body); font:17px/1.5 var(--serif); }
+  .sheet { max-width:1180px; margin:0 auto; padding:0 16px 64px; }
+  a { color:inherit; }
+  button, input { font:inherit; color:inherit; }
+  [hidden] { display:none !important; }
+
+  /* Masthead */
+  .ears { display:flex; justify-content:flex-end; gap:16px; padding:14px 0 0;
+          font:500 11px/1.3 var(--sans); letter-spacing:.04em; color:var(--mid); }
+  .ears span:last-child { text-align:right; }
+  .flag { text-align:center; font:400 clamp(40px, 8vw, 76px)/1 var(--black); color:var(--ink);
+          margin:10px 0 12px; letter-spacing:.01em; }
+  .dateline { display:flex; justify-content:space-between; align-items:center; gap:12px;
+              border-top:1px solid var(--heavy); border-bottom:3px double var(--heavy);
+              padding:7px 0; font:600 11px/1.2 var(--sans); letter-spacing:.08em;
+              text-transform:uppercase; color:var(--ink); }
+  .dateline .status { font-weight:500; color:var(--mid); text-transform:none; letter-spacing:.02em; }
+  .dateline .status.err { color:#b3261e; }
+  .sections { display:flex; justify-content:center; flex-wrap:wrap; gap:4px 22px; padding:9px 0;
+              border-bottom:1px solid var(--rule); font:500 12px/1.2 var(--sans); }
+  .sections a { text-decoration:none; color:var(--ink); }
+  .sections a:hover { text-decoration:underline; text-underline-offset:3px; }
+
+  /* Grid: columns divided by hairlines, like a broadsheet */
+  .row { display:grid; gap:0; border-bottom:1px solid var(--rule); }
+  .row > section { padding:22px 0 26px; min-width:0; }
+  @media (min-width: 860px) {
+    .row.lead { grid-template-columns: 1.35fr 1fr; }
+    .row.three { grid-template-columns: 1fr 1fr 1fr; }
+    .row.two { grid-template-columns: 1.4fr 1fr; }
+    .row > section + section { border-left:1px solid var(--rule); padding-left:24px; }
+    .row > section:not(:last-child) { padding-right:24px; }
+  }
+  @media (max-width: 859px) {
+    .row > section + section { border-top:1px solid var(--rule); }
+  }
+  .kicker { font:700 11px/1.2 var(--sans); letter-spacing:.1em; text-transform:uppercase;
+            color:var(--ink); margin:0 0 8px; }
+  h2 { font:400 30px/1.12 var(--display); color:var(--ink); margin:0 0 6px; }
+  .lead h2 { font-size:clamp(30px, 4vw, 40px); }
+  .dek { font-style:italic; color:var(--mid); margin:0 0 16px; font-size:16px; }
+  .note { font:400 13px/1.45 var(--sans); color:var(--mid); }
+
+  /* Buttons read as small type, not chrome */
+  .link { background:none; border:0; padding:0; cursor:pointer; font:600 11px/1 var(--sans);
+          letter-spacing:.08em; text-transform:uppercase; color:var(--ink); }
+  .link:hover { text-decoration:underline; text-underline-offset:3px; }
+  .link.quiet { color:var(--faint); font-weight:500; }
+  .link:disabled { color:var(--rule); cursor:default; text-decoration:none; }
+  .field { width:100%; border:0; border-bottom:1px solid var(--rule); background:transparent;
+           padding:7px 0; outline:none; border-radius:0; }
+  .field:focus { border-bottom-color:var(--ink); }
+  .field.small { font:400 14px/1.3 var(--sans); }
+  .add { display:flex; gap:14px; align-items:flex-end; margin-top:14px; }
+  .add .field { flex:1; }
+
+  /* Front page: the Kindle as a photograph */
+  .figure { margin:0; }
+  .frame { background:var(--wash); border:1px solid var(--rule); padding:18px;
+           display:flex; justify-content:center; }
+  .frame img { width:100%; max-width:360px; aspect-ratio:758/1024; display:block;
+               background:#fff; border:1px solid #cfcfcf; }
+  .frame .empty { width:100%; max-width:360px; aspect-ratio:758/1024; display:flex;
+                  align-items:center; justify-content:center; text-align:center; padding:24px;
+                  font:400 13px/1.5 var(--sans); color:var(--mid); border:1px dashed var(--rule); }
+  figcaption { display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+               margin-top:9px; font:400 13px/1.4 var(--sans); color:var(--mid); }
+  figcaption .nav { display:flex; gap:16px; flex:none; }
+  .kcard { width:100%; max-width:360px; aspect-ratio:758/1024; margin:0 auto; background:var(--paper);
+           border:1px solid var(--rule); padding:22px 22px 16px; box-sizing:border-box; overflow:hidden;
+           font:400 15px/1.35 var(--serif); color:var(--ink); }
+  .kdate { display:flex; align-items:flex-end; gap:12px; padding-bottom:10px; border-bottom:2px solid var(--heavy); }
+  .kdate b { font:400 72px/.8 var(--display); }
+  .kdate strong { display:block; font:600 22px/1.1 var(--serif); }
+  .kdate small { display:block; color:var(--mid); font-size:14px; }
+  .kweather { padding:12px 0 10px; border-bottom:2px solid var(--heavy); }
+  .kweather b { font:400 40px/1 var(--display); margin-right:10px; vertical-align:-4px; }
+  .kweather small { display:block; color:var(--mid); font:400 12px/1.4 var(--sans); margin-top:4px; }
+  .kcard h3 { font:600 17px/1.2 var(--serif); margin:12px 0 6px; }
+  .kev { padding:4px 0; }
+  .kev small { display:block; font:600 11px/1.3 var(--sans); color:var(--mid); }
+  .kev.deadline span { font-weight:600; }
+  .credit { font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--faint); }
+
+  /* To-dos */
+  .todos { list-style:none; margin:0; padding:0; }
+  .todos li { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--rule); }
+  .todos li:first-child { border-top:1px solid var(--ink); }
+  .box { flex:none; width:18px; height:18px; margin-top:4px; border:1.5px solid var(--ink);
+         background:transparent; cursor:pointer; padding:0; position:relative; }
+  .box[aria-checked="true"] { background:var(--ink); }
+  .box[aria-checked="true"]::after { content:""; position:absolute; left:5px; top:1px; width:5px; height:10px;
+         border:solid var(--paper); border-width:0 2px 2px 0; transform:rotate(45deg); }
+  .todos .text { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .todos li.done .text { color:var(--faint); text-decoration:line-through; text-decoration-thickness:1px; }
+  .todos .link { margin-top:6px; }
+
+  /* Countdowns */
+  .counts { margin:0; padding:0; list-style:none; }
+  .counts li { display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:baseline;
+               padding:12px 0; border-bottom:1px solid var(--rule); }
+  .counts li:first-child { border-top:1px solid var(--ink); }
+  .counts .n { font:400 40px/1 var(--display); color:var(--ink); min-width:2.2ch; text-align:right; }
+  .counts .what { color:var(--ink); line-height:1.25; }
+  .counts .when { display:block; font:400 12px/1.4 var(--sans); color:var(--mid); margin-top:3px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+  /* Dots */
+  .tally { display:flex; align-items:baseline; gap:12px; margin:4px 0 12px; }
+  .tally b { font:400 56px/1 var(--display); color:var(--ink); font-weight:400; }
+  .tally span { font-style:italic; color:var(--mid); }
+  .minidots { display:grid; grid-template-columns:repeat(auto-fill, 9px); gap:4px; margin:6px 0 16px; }
+  .minidots i { width:9px; height:9px; border-radius:50%; border:1px solid var(--ink); }
+  .minidots i.g { background:var(--ink); }
+  .minidots i.t { background:var(--faint); border-color:var(--faint); }
+  label.cap { display:block; font:600 10px/1 var(--sans); letter-spacing:.1em; text-transform:uppercase;
+              color:var(--mid); margin-top:12px; }
+
+  /* Running order */
+  .order { list-style:none; margin:0; padding:0; counter-reset:n; }
+  .order li { display:grid; grid-template-columns:22px 1fr auto; gap:10px; align-items:center;
+              padding:8px 0; border-bottom:1px solid var(--rule); }
+  .order li:first-child { border-top:1px solid var(--ink); }
+  .order li.on::before { counter-increment:n; content:counter(n); font:600 12px/1 var(--sans); color:var(--mid); }
+  .order li.off::before { content:"–"; font:600 12px/1 var(--sans); color:var(--rule); }
+  .order .t { color:var(--ink); line-height:1.2; }
+  .order .t small { display:block; font:400 12px/1.35 var(--sans); color:var(--mid); }
+  .order li.off .t { color:var(--faint); }
+  .order .ctl { display:flex; gap:14px; align-items:center; }
+  .order li.on { cursor:grab; user-select:none; -webkit-user-select:none; background:var(--paper); }
+  /* Grip: six dots drawn in CSS, the handle for dragging on touch screens */
+  .grip { box-sizing:content-box; width:14px; height:21px; padding:10px 8px; border:0; cursor:grab;
+          touch-action:none; flex:none; margin:-10px -4px;
+          background:radial-gradient(circle, var(--mid) 1.5px, transparent 1.9px) 0 0 / 7px 7px;
+          background-origin:content-box; background-clip:content-box; }
+  .grip:hover, .grip:focus-visible { background-image:radial-gradient(circle, var(--ink) 1.5px, transparent 1.9px); }
+  .grip:focus-visible { outline:1px solid var(--ink); outline-offset:2px; }
+  .order li.dragging { cursor:grabbing; position:relative; z-index:2;
+                       box-shadow:0 6px 18px rgba(0,0,0,.14); outline:1px solid var(--ink); }
+  .order li.dragging .grip { cursor:grabbing; }
+
+  /* Reading room */
+  .briefs { columns:2 260px; column-gap:28px; column-rule:1px solid var(--rule); }
+  .brief { break-inside:avoid; margin:0 0 18px; }
+  .brief h3 { font:700 11px/1.2 var(--sans); letter-spacing:.1em; text-transform:uppercase;
+              color:var(--ink); border-top:1px solid var(--ink); padding-top:8px; margin:0 0 6px; }
+  .brief a { display:block; text-decoration:none; font:400 19px/1.25 var(--display); color:var(--ink); padding:6px 0; }
+  .brief a:hover { text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
+  .brief a small { display:block; font:400 12px/1.4 var(--sans); color:var(--mid); margin-top:3px; }
+
+  /* Sources */
+  .src { padding:10px 0; border-bottom:1px solid var(--rule); }
+  .src:first-of-type { border-top:1px solid var(--ink); }
+  .src .top { display:flex; gap:12px; align-items:flex-end; }
+  .src .top .field:first-child { font-weight:600; color:var(--ink); }
+  .src .max { width:52px; flex:none; text-align:center; }
+
+  /* Sign-in */
+  .signin { max-width:560px; margin:36px auto 0; }
+  .signin ol { padding-left:20px; }
+  .signin li { margin-bottom:6px; }
+  .signin .add { margin-top:22px; }
+  .colophon { margin-top:28px; padding-top:12px; border-top:3px double var(--heavy); text-align:center;
+              font:italic 400 14px/1.4 var(--serif); color:var(--mid); }
+  .foot { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; padding-top:14px;
+          font:400 12px/1.4 var(--sans); color:var(--faint); }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <div class="ears"><span id="ear-right">Private. Reads from your repo only.</span></div>
+    <h1 class="flag">The Kindle Dashboard</h1>
+    <div class="dateline"><span id="today"></span><span class="status" id="status" role="status" aria-live="polite"></span></div>
+    <nav class="sections" id="nav" hidden>
+      <a href="#front">Front page</a><a href="#todos">To-dos</a><a href="#counts">Countdowns</a>
+      <a href="#dots">The long count</a><a href="#order">Running order</a><a href="#reading">Reading room</a><a href="#sources">Sources</a>
+    </nav>
+  </header>
+
+  <!-- Sign in -->
+  <main id="signin" class="signin" hidden>
+    <p class="kicker">Before you begin</p>
+    <h2>Sign in with a GitHub token</h2>
+    <p class="dek">This page has no data of its own. It reads and edits your data repo directly, and keeps the repo name and token in this browser only.</p>
+    <ol>
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>.</li>
+      <li>Repository access: only your data repo (the one made from <a href="https://github.com/hadihassan04/kdash-koreader/tree/main/generator" target="_blank" rel="noopener">the generator</a>).</li>
+      <li>Permissions: <b>Contents</b> and <b>Actions</b>, both <b>Read and write</b>. The Kindle can use the same token.</li>
+      <li>Generate, copy, and paste it below.</li>
+    </ol>
+    <form class="add" id="signin-form">
+      <input class="field small" id="repo" autocomplete="off" spellcheck="false" placeholder="owner/repo" aria-label="Data repo, owner/name" required>
+      <input class="field small" id="token" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub token" required>
+      <button class="link" type="submit">Sign in</button>
+    </form>
+    <p class="note" id="signin-error"></p>
+  </main>
+
+  <!-- The paper -->
+  <main id="paper" hidden>
+    <div class="row lead" id="front">
+      <section>
+        <p class="kicker">On the Kindle now</p>
+        <h2 id="lead-head">The front page</h2>
+        <p class="dek" id="lead-dek">What the Kindle's today page shows, from the latest data.json.</p>
+        <figure class="figure">
+          <div class="frame" id="frame"><div class="empty">Loading…</div></div>
+          <figcaption>
+            <span id="caption"></span>
+            <span class="nav"><button class="link" id="refresh" type="button">Refresh now</button></span>
+          </figcaption>
+          <p class="credit" id="credit"></p>
+        </figure>
+      </section>
+      <section id="todos">
+        <p class="kicker">To-dos</p>
+        <h2>The list</h2>
+        <p class="dek" id="todo-dek"></p>
+        <form class="add" id="todo-form" style="margin:0 0 16px">
+          <input class="field" id="todo-new" placeholder="Add a to-do" aria-label="New to-do">
+          <button class="link" type="submit">Add</button>
+        </form>
+        <ul class="todos" id="todo-list"></ul>
+      </section>
+    </div>
+
+    <div class="row three">
+      <section id="counts">
+        <p class="kicker">Countdowns</p>
+        <h2>Days until</h2>
+        <p class="dek">Calendar deadlines in the next 60 days are added on the Kindle automatically.</p>
+        <ul class="counts" id="count-list"></ul>
+        <form id="count-form">
+          <div class="grid2">
+            <div><label class="cap" for="count-name">Name</label><input class="field" id="count-name" required></div>
+            <div><label class="cap" for="count-date">Date</label><input class="field small" id="count-date" type="date" required></div>
+          </div>
+          <div class="add" style="justify-content:flex-end"><button class="link" type="submit">Add countdown</button></div>
+        </form>
+      </section>
+      <section id="dots">
+        <p class="kicker">The long count</p>
+        <h2 id="dots-head">Days left</h2>
+        <div class="tally"><b id="dots-left">0</b><span id="dots-sub"></span></div>
+        <div class="minidots" id="minidots" aria-hidden="true"></div>
+        <label class="cap" for="dots-name">Label, after "days left"</label><input class="field" id="dots-name">
+        <div class="grid2">
+          <div><label class="cap" for="dots-start">From</label><input class="field small" id="dots-start" type="date"></div>
+          <div><label class="cap" for="dots-end">Until</label><input class="field small" id="dots-end" type="date"></div>
+        </div>
+      </section>
+      <section id="order">
+        <p class="kicker">Running order</p>
+        <h2>Pages on the Kindle</h2>
+        <p class="dek">Drag pages into the order you want, or leave them out.</p>
+        <ol class="order" id="order-list"></ol>
+      </section>
+    </div>
+
+    <div class="row two">
+      <section id="reading">
+        <p class="kicker">Reading room</p>
+        <h2>Today's headlines and papers</h2>
+        <p class="dek">The same items as the Kindle's reading page, with links.</p>
+        <div class="briefs" id="briefs"></div>
+      </section>
+      <section id="sources">
+        <p class="kicker">Sources</p>
+        <h2>Feeds and searches</h2>
+        <p class="dek">Numbers are how many items each one shows.</p>
+        <p class="kicker" style="margin-top:18px">News feeds</p>
+        <div id="feed-list"></div>
+        <div class="add"><button class="link" type="button" id="feed-add">Add a feed</button></div>
+        <p class="kicker" style="margin-top:26px">arXiv searches</p>
+        <div id="arxiv-list"></div>
+        <div class="add"><button class="link" type="button" id="arxiv-add">Add a search</button></div>
+        <p class="note" style="margin-top:14px">Search syntax: <a href="https://info.arxiv.org/help/api/user-manual.html#query_details" target="_blank" rel="noopener">arXiv API guide</a>.</p>
+      </section>
+    </div>
+
+    <div class="foot">
+      <span>Each change is saved to the repo, which rebuilds data.json in about 20 seconds. The Kindle picks it up at its next refresh.</span>
+      <button class="link quiet" id="signout" type="button">Sign out</button>
+    </div>
+  </main>
+  <p class="colophon"><a href="https://github.com/hadihassan04/kdash-koreader" target="_blank" rel="noopener">kdash for KOReader</a></p>
+</div>
+
+<script>
+"use strict";
+// The data repo ("owner/name") and token are entered once and kept in this
+// browser. ?repo=owner/name in the address fills the repo in.
+let REPO = "", API = "";
+function setRepo(r) { REPO = r; API = "https://api.github.com/repos/" + r; }
+const PAGE_INFO = {
+  today: ["Today", "Date, weather, next events, top to-dos"],
+  agenda: ["This week", "Seven days of calendar"],
+  weather: ["Weather", "Seven-day forecast"],
+  todos: ["To-dos", "The full checklist"],
+  countdowns: ["Countdowns", "Days until each date"],
+  dots: ["The long count", "One dot per day"],
+  reading: ["Reading", "Headlines and new papers"],
+  habits: ["Habits", "This month's grid"],
+  quote: ["Quote and word", "One of each per day"],
+  photo: ["Photo", "One photo per day"],
+};
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => {
+  const n = Object.assign(document.createElement(tag), props);
+  for (const k of kids) n.append(k);
+  return n;
+};
+
+// ---------------------------------------------------------------- storage
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+let token = store.get("kdash-token");
+setRepo(new URLSearchParams(location.search).get("repo") || store.get("kdash-repo") || "");
+
+// ------------------------------------------------------------------ status
+let statusTimer;
+function status(text, isError) {
+  const s = $("status");
+  s.textContent = text;
+  s.classList.toggle("err", !!isError);
+  clearTimeout(statusTimer);
+  if (!isError && text) statusTimer = setTimeout(() => { s.textContent = ""; }, 6000);
+}
+
+// --------------------------------------------------------------------- API
+async function gh(path, opts = {}) {
+  const r = await fetch(API + path, {
+    ...opts,
+    headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {}) },
+  });
+  if (!r.ok) {
+    let msg = r.status + "";
+    try { msg += " " + (await r.json()).message; } catch {}
+    const e = new Error(msg); e.status = r.status; throw e;
+  }
+  return r;
+}
+const b64enc = (s) => { let b = ""; for (const c of new TextEncoder().encode(s)) b += String.fromCharCode(c); return btoa(b); };
+const b64dec = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, "")), (c) => c.charCodeAt(0)));
+
+async function readFile(path, ref = "main") {
+  const j = await (await gh(`/contents/${path}?ref=${ref}`)).json();
+  return { sha: j.sha, text: b64dec(j.content) };
+}
+async function readOut(path, as) {        // rendered output lives on the "out" branch
+  const r = await gh(`/contents/${path}?ref=out`, { headers: { Accept: "application/vnd.github.raw+json" } });
+  return as === "blob" ? r.blob() : as === "json" ? r.json() : r.text();
+}
+
+// One save queue per file, so quick edits collapse into one commit.
+const files = {};   // path -> { sha, timer, busy, again, build, message }
+function register(path, sha, build, message) { files[path] = { sha, build, message }; }
+function save(path) {
+  const f = files[path];
+  clearTimeout(f.timer);
+  status("Saving…");
+  f.timer = setTimeout(() => flush(path), 900);
+}
+async function flush(path) {
+  const f = files[path];
+  if (f.busy) { f.again = true; return; }
+  f.busy = true;
+  try {
+    const body = { message: f.message, content: b64enc(f.build()), sha: f.sha, branch: "main" };
+    const j = await (await gh(`/contents/${path}`, { method: "PUT", body: JSON.stringify(body) })).json();
+    f.sha = j.content.sha;
+    status("Saved. data.json rebuilds in about 20 seconds.");
+  } catch (e) {
+    if (e.status === 409 || e.status === 422) status("This file changed elsewhere. Reload the page, then make the change again.", true);
+    else if (e.status === 401 || e.status === 403) status("The token can't write to the repo. It needs Contents: Read and write.", true);
+    else status("Couldn't save: " + e.message, true);
+  } finally {
+    f.busy = false;
+    if (f.again) { f.again = false; flush(path); }
+  }
+}
+
+// ----------------------------------------------------------------- state
+let settings = null;             // data/settings.json
+let todoLines = [];              // non-item lines of todos.md, kept as they are
+let todos = [];                  // [{text, done}]
+
+const todayISO = () => {
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+};
+const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+const longDate = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("en-GB",
+  { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+// ----------------------------------------------------------------- to-dos
+function parseTodos(text) {
+  todoLines = []; todos = [];
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\s*[-*]\s*\[([ xX])\]\s*(.+)$/);
+    if (m) todos.push({ text: m[2].trim(), done: m[1] !== " " });
+    else if (line.trim()) todoLines.push(line);
+  }
+}
+const buildTodos = () => todoLines.concat(todos.map((t) => `- [${t.done ? "x" : " "}] ${t.text}`)).join("\n") + "\n";
+
+function drawTodos() {
+  const list = $("todo-list"); list.replaceChildren();
+  const open = todos.filter((t) => !t.done).length;
+  $("todo-dek").textContent = open === 0 ? "Nothing open." : `${open} open. The Kindle's today page shows the first three.`;
+  const ordered = todos.filter((t) => !t.done).concat(todos.filter((t) => t.done));
+  for (const t of ordered) {
+    const box = el("button", { className: "box", type: "button", title: t.done ? "Mark as open" : "Mark as done" });
+    box.setAttribute("role", "checkbox"); box.setAttribute("aria-checked", t.done);
+    box.setAttribute("aria-label", t.text);
+    box.onclick = () => { t.done = !t.done; drawTodos(); save("data/todos.md"); };
+    const del = el("button", { className: "link quiet", type: "button", textContent: "Remove" });
+    del.onclick = () => { todos.splice(todos.indexOf(t), 1); drawTodos(); save("data/todos.md"); };
+    list.append(el("li", { className: t.done ? "done" : "" }, box, el("span", { className: "text", textContent: t.text }), del));
+  }
+}
+$("todo-form").onsubmit = (e) => {
+  e.preventDefault();
+  const v = $("todo-new").value.trim();
+  if (!v) return;
+  let lastOpen = -1;                     // new items go after the last open one
+  todos.forEach((t, i) => { if (!t.done) lastOpen = i; });
+  todos.splice(lastOpen + 1, 0, { text: v, done: false });
+  $("todo-new").value = "";
+  drawTodos(); save("data/todos.md");
+};
+
+// ------------------------------------------------------------- countdowns
+function drawCounts() {
+  const list = $("count-list"); list.replaceChildren();
+  const today = todayISO();
+  const items = (settings.countdowns || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  if (!items.length) list.append(el("li", {}, el("span"), el("span", { className: "note", textContent: "No countdowns yet." }), el("span")));
+  for (const c of items) {
+    const n = daysBetween(today, c.date);
+    const del = el("button", { className: "link quiet", type: "button", textContent: "Remove" });
+    del.onclick = () => { settings.countdowns.splice(settings.countdowns.indexOf(c), 1); drawCounts(); save("data/settings.json"); };
+    list.append(el("li", {},
+      el("span", { className: "n", textContent: n < 0 ? "—" : n }),
+      el("span", { className: "what", textContent: c.name },
+         el("span", { className: "when", textContent: n < 0 ? "Passed, " + longDate(c.date) : longDate(c.date) })),
+      del));
+  }
+}
+$("count-form").onsubmit = (e) => {
+  e.preventDefault();
+  const name = $("count-name").value.trim(), date = $("count-date").value;
+  if (!name || !date) return;
+  (settings.countdowns = settings.countdowns || []).push({ name, date });
+  $("count-name").value = ""; $("count-date").value = "";
+  drawCounts(); save("data/settings.json");
+};
+
+// ------------------------------------------------------------------- dots
+function drawDots() {
+  const d = settings.dots || (settings.dots = { name: "", start: todayISO(), end: todayISO() });
+  $("dots-name").value = d.name || ""; $("dots-start").value = d.start || ""; $("dots-end").value = d.end || "";
+  const today = todayISO();
+  const total = Math.max(daysBetween(d.start || today, d.end), 1);
+  const gone = Math.min(Math.max(daysBetween(d.start || today, today), 0), total);
+  const left = Math.max(daysBetween(today, d.end), 0);
+  $("dots-head").textContent = `Days left ${d.name || ""}`.trim();
+  $("dots-left").textContent = left;
+  $("dots-sub").textContent = `${gone} of ${total} days gone, until ${longDate(d.end)}`;
+  const g = $("minidots"); g.replaceChildren();
+  for (let i = 0; i < Math.min(total, 1200); i++) g.append(el("i", { className: i < gone ? "g" : i === gone ? "t" : "" }));
+}
+for (const id of ["dots-name", "dots-start", "dots-end"]) {
+  $(id).addEventListener("change", () => {
+    const d = settings.dots;
+    d.name = $("dots-name").value.trim(); d.start = $("dots-start").value; d.end = $("dots-end").value;
+    if (!d.start || !d.end || d.end <= d.start) { status("The end date needs to be after the start date.", true); return; }
+    drawDots(); save("data/settings.json");
+  });
+}
+
+// ---------------------------------------------------------- running order
+function drawOrder() {
+  const list = $("order-list"); list.replaceChildren();
+  const on = settings.pages.filter((p) => PAGE_INFO[p]);
+  const off = Object.keys(PAGE_INFO).filter((p) => !on.includes(p));
+  for (const p of on) {
+    const grip = el("button", { className: "grip", type: "button", title: "Drag to reorder" });
+    grip.setAttribute("aria-label", "Reorder " + PAGE_INFO[p][0] + ". Use the up and down arrow keys.");
+    const drop = el("button", { className: "link quiet", type: "button", textContent: "Leave out" });
+    drop.onclick = () => {
+      if (settings.pages.length === 1) { status("The Kindle needs at least one page.", true); return; }
+      settings.pages.splice(settings.pages.indexOf(p), 1); drawOrder(); save("data/settings.json");
+    };
+    const li = el("li", { className: "on" },
+      el("span", { className: "t", textContent: PAGE_INFO[p][0] }, el("small", { textContent: PAGE_INFO[p][1] })),
+      el("span", { className: "ctl" }, grip, drop));
+    li.dataset.page = p;
+    grip.onkeydown = (e) => {                   // keyboard: arrows move the page
+      const dir = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      const i = settings.pages.indexOf(p), j = i + dir;
+      if (j < 0 || j >= settings.pages.length) return;
+      [settings.pages[i], settings.pages[j]] = [settings.pages[j], settings.pages[i]];
+      drawOrder(); save("data/settings.json");
+      list.querySelector(`li[data-page="${p}"] .grip`).focus();
+    };
+    // Touch drags start on the grip (so the page still scrolls); a mouse can grab the whole row.
+    li.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest(".link")) return;
+      if (e.pointerType !== "mouse" && e.target !== grip) return;
+      startDrag(li, e);
+    });
+    list.append(li);
+  }
+  for (const p of off) {
+    const add = el("button", { className: "link", type: "button", textContent: "Add back" });
+    add.onclick = () => { settings.pages.push(p); drawOrder(); save("data/settings.json"); };
+    list.append(el("li", { className: "off" },
+      el("span", { className: "t", textContent: PAGE_INFO[p][0] }, el("small", { textContent: PAGE_INFO[p][1] })),
+      el("span", { className: "ctl" }, add)));
+  }
+}
+
+// Drag a running-order row: it follows the pointer, and the other rows make
+// room for it. The new order is saved when it's let go.
+function startDrag(li, e) {
+  e.preventDefault();
+  const list = li.parentElement;
+  const before = settings.pages.join();
+  const startY = e.clientY;
+  let offset = 0;
+  li.classList.add("dragging");
+  try { li.setPointerCapture(e.pointerId); } catch {}
+  const onMove = (ev) => {
+    const place = () => { li.style.transform = `translateY(${ev.clientY - startY + offset}px)`; };
+    place();
+    // Swap with neighbours while the row's middle is past theirs (loops for fast moves)
+    for (;;) {
+      const rows = [...list.querySelectorAll("li.on")];
+      const i = rows.indexOf(li);
+      const r = li.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      const prev = rows[i - 1], next = rows[i + 1];
+      if (prev && mid < prev.getBoundingClientRect().top + prev.offsetHeight / 2) {
+        offset += prev.offsetHeight; list.insertBefore(li, prev);
+      } else if (next && mid > next.getBoundingClientRect().top + next.offsetHeight / 2) {
+        offset -= next.offsetHeight; list.insertBefore(next, li);
+      } else break;
+      place();
+    }
+  };
+  const onUp = () => {
+    li.removeEventListener("pointermove", onMove);
+    li.removeEventListener("pointerup", onUp);
+    li.removeEventListener("pointercancel", onUp);
+    li.classList.remove("dragging");
+    li.style.transform = "";
+    const order = [...list.querySelectorAll("li.on")].map((n) => n.dataset.page);
+    const hidden = settings.pages.filter((p) => !PAGE_INFO[p]);   // keep any unknown names
+    settings.pages = order.concat(hidden);
+    if (settings.pages.join() !== before) save("data/settings.json");
+    drawOrder();
+  };
+  li.addEventListener("pointermove", onMove);
+  li.addEventListener("pointerup", onUp);
+  li.addEventListener("pointercancel", onUp);
+}
+
+// ---------------------------------------------------------------- sources
+function drawSources() {
+  const row = (list, item, key, placeholder) => {
+    const name = el("input", { className: "field", value: item.name || "", placeholder: "Name" });
+    const max = el("input", { className: "field small max", value: item.max || 3, type: "number", min: 1, max: 10 });
+    const val = el("input", { className: "field small", value: item[key] || "", placeholder });
+    const del = el("button", { className: "link quiet", type: "button", textContent: "Remove" });
+    name.setAttribute("aria-label", "Name"); max.setAttribute("aria-label", "Items shown");
+    val.setAttribute("aria-label", key === "url" ? "Feed address" : "Search query");
+    const commit = () => {
+      item.name = name.value.trim(); item[key] = val.value.trim();
+      item.max = Math.min(Math.max(parseInt(max.value, 10) || 3, 1), 10);
+      if (item.name && item[key]) save("data/settings.json");
+    };
+    for (const i of [name, max, val]) i.addEventListener("change", commit);
+    del.onclick = () => { list.splice(list.indexOf(item), 1); drawSources(); save("data/settings.json"); };
+    return el("div", { className: "src" }, el("div", { className: "top" }, name, max, del), val);
+  };
+  settings.feeds = settings.feeds || []; settings.arxiv = settings.arxiv || [];
+  $("feed-list").replaceChildren(...settings.feeds.map((f) => row(settings.feeds, f, "url", "https://…/feed.xml")));
+  $("arxiv-list").replaceChildren(...settings.arxiv.map((a) => row(settings.arxiv, a, "query", 'cat:cs.LG AND abs:"transformer"')));
+}
+$("feed-add").onclick = () => { settings.feeds.push({ name: "", url: "", max: 4 }); drawSources(); };
+$("arxiv-add").onclick = () => { settings.arxiv.push({ name: "", query: "", max: 3 }); drawSources(); };
+
+// -------------------------------------------------- front page and reading
+const esc = (t) => el("span", { textContent: t == null ? "" : String(t) });
+const dayLabel = (iso, today) => {
+  const d = iso.slice(0, 10);
+  if (d === today) return "Today";
+  const t = new Date(today + "T12:00"); t.setDate(t.getDate() + 1);
+  if (d === t.toISOString().slice(0, 10)) return "Tomorrow";
+  return new Date(d + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+};
+function drawFront(d) {
+  const page = (d.pages || []).find((p) => p.name === "today");
+  const t = (page && page.data) || {};
+  const card = el("div", { className: "kcard" });
+  const date = new Date((d.today || todayISO()) + "T12:00");
+  card.append(el("div", { className: "kdate" },
+    el("b", { textContent: date.getDate() }),
+    el("span", {}, el("strong", { textContent: date.toLocaleDateString("en-GB", { weekday: "long" }) }),
+       el("small", { textContent: date.toLocaleDateString("en-GB", { month: "long", year: "numeric" }) }))));
+  const w = t.weather;
+  if (w && w.days && w.days[0]) {
+    card.append(el("div", { className: "kweather" },
+      el("b", { textContent: w.temp + "°" }), esc(w.desc),
+      el("small", { textContent: `High ${w.days[0].hi}°, low ${w.days[0].lo}°. Feels ${w.feels}°.` })));
+  } else if (t.weather_error) card.append(el("p", { className: "note", textContent: t.weather_error }));
+  card.append(el("h3", { textContent: "Next up" }));
+  const ev = t.upcoming || [];
+  if (!ev.length) card.append(el("p", { className: "note", textContent: t.has_calendar ? "Nothing coming up." : "No calendar set." }));
+  for (const e of ev) {
+    const when = e.allday ? "All day" : e.start.slice(11, 16);
+    card.append(el("div", { className: "kev" + (e.deadline ? " deadline" : "") },
+      el("small", { textContent: dayLabel(e.start, d.today) + " " + when }), esc(e.title)));
+  }
+  $("frame").replaceChildren(card);
+  $("caption").textContent = d.location ? "Weather for " + d.location + "." : "";
+}
+async function loadFront() {
+  try {
+    const d = await readOut("data.json", "json");
+    $("credit").textContent = "Updated " + new Date(d.updated).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    drawFront(d);
+    const r = (d.pages || []).find((p) => p.name === "reading");
+    drawBriefs(r && r.data && r.data.sections);
+  } catch (e) {
+    $("frame").replaceChildren(el("div", { className: "empty", textContent:
+      "No data.json yet. It appears after the first run of the render workflow (" + e.message + ")." }));
+    drawBriefs(null);
+  }
+}
+// Start the render workflow, wait for the out branch to change, then reload
+$("refresh").onclick = async () => {
+  const btn = $("refresh"); btn.disabled = true;
+  try {
+    const sha = async () => (await (await gh("/commits/out", { headers: { Accept: "application/vnd.github.sha" } })).text()).trim();
+    const before = await sha().catch(() => "");
+    await gh("/actions/workflows/render.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main" }) });
+    status("Rebuilding data.json…");
+    for (let i = 0; i < 24; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      if ((await sha().catch(() => before)) !== before) { status("Updated."); await loadFront(); return; }
+    }
+    status("The rebuild is taking long. Check the repo's Actions tab.", true);
+  } catch (e) {
+    status(e.status === 403 || e.status === 404 ? "The token can't start the workflow. It needs Actions: Read and write." : "Couldn't refresh: " + e.message, true);
+  } finally { btn.disabled = false; }
+};
+function drawBriefs(sections) {
+  const box = $("briefs"); box.replaceChildren();
+  if (!sections || !sections.length) {
+    box.append(el("p", { className: "note", textContent: "No items yet. They appear after the next render." }));
+    return;
+  }
+  for (const s of sections) {
+    const b = el("div", { className: "brief" }, el("h3", { textContent: s.name }));
+    for (const e of s.entries) {
+      const safe = /^https?:\/\//.test(e.link || "");
+      const a = el(safe ? "a" : "div", safe ? { href: e.link, target: "_blank", rel: "noopener" } : { className: "brief-plain" });
+      a.append(e.title);
+      if (e.meta) a.append(el("small", { textContent: e.meta }));
+      b.append(a);
+    }
+    box.append(b);
+  }
+}
+
+// ------------------------------------------------------------------ boot
+$("today").textContent = new Date().toLocaleDateString("en-US",
+  { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+function showSignin(msg) {
+  $("paper").hidden = true; $("nav").hidden = true; $("signin").hidden = false;
+  $("repo").value = REPO;
+  $("signin-error").textContent = msg || "";
+}
+$("signin-form").onsubmit = (e) => {
+  e.preventDefault();
+  const r = $("repo").value.trim().replace(/^https:\/\/github\.com\//, "").replace(/\/+$/, "");
+  const v = $("token").value.trim();
+  if (!/^[\w.-]+\/[\w.-]+$/.test(r)) { $("signin-error").textContent = "The repo is owner/name, e.g. octocat/my-kdash-data."; return; }
+  if (!v) return;
+  setRepo(r); store.set("kdash-repo", r);
+  token = v; store.set("kdash-token", v); boot();
+};
+$("signout").onclick = () => { store.del("kdash-token"); token = null; showSignin(); };
+
+async function boot() {
+  if (!token || !REPO) { showSignin(); return; }
+  status("Loading…");
+  try {
+    const [s, t] = await Promise.all([readFile("data/settings.json"), readFile("data/todos.md")]);
+    settings = Object.assign({ pages: [], countdowns: [], dots: {}, feeds: [], arxiv: [] }, JSON.parse(s.text));
+    parseTodos(t.text);
+    register("data/settings.json", s.sha, () => JSON.stringify(settings, null, 2) + "\n", "Portal: update settings");
+    register("data/todos.md", t.sha, buildTodos, "Portal: update to-dos");
+  } catch (e) {
+    if (e.status === 401 || e.status === 403 || e.status === 404) {
+      store.del("kdash-token"); token = null;
+      showSignin(e.status === 404 && token
+        ? "Couldn't find data/settings.json and data/todos.md in " + REPO + " (" + e.message + "). Check the repo name, and that the token has access to it with Contents: Read and write."
+        : "That token can't read the repo (" + e.message + "). Check it has access to " + REPO + " with Contents: Read and write.");
+    } else showSignin("Couldn't reach GitHub: " + e.message);
+    status("");
+    return;
+  }
+  $("signin").hidden = true; $("paper").hidden = false; $("nav").hidden = false;
+  drawTodos(); drawCounts(); drawDots(); drawOrder(); drawSources();
+  status("");
+  loadFront();
+}
+boot();
+</script>
+</body>
+</html>

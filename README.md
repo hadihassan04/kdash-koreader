@@ -133,3 +133,7 @@ Formats of the files the taps edit:
   4. Launch with `EMULATE_READER_W=379 EMULATE_READER_H=512 EMULATE_READER_DPI=106 ./luajit reader.lua`.
      That gives a 758x1024 framebuffer on a Retina Mac.
 - The plugin logs to `crash.log` with lines starting `kdash:`.
+
+## License
+The plugin is AGPL-3.0, like KOReader (see `LICENSE`). The Literata fonts are
+under the SIL Open Font License (`fonts/literata/OFL.txt`).

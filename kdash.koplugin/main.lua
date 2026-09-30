@@ -90,13 +90,13 @@ local MONTHS = { "January", "February", "March", "April", "May", "June", "July",
                  "August", "September", "October", "November", "December" }
 
 -- Layout, set from the screen size in layout(). Sizes below are in pixels of the
--- 758 px wide PNG design (templates/), scaled to the actual screen width.
+-- 758 px wide design (a Kindle Paperwhite 2 screen), scaled to the actual screen width.
 local W, H, M, CW, SCALE
 
 local function layout()
     W, H = Screen:getWidth(), Screen:getHeight()
     SCALE = W / 758
-    M = math.floor(48 * SCALE)                  -- side margin, as in base.html
+    M = math.floor(48 * SCALE)                  -- side margin
     CW = W - 2 * M                              -- content width
 end
 
@@ -517,7 +517,7 @@ local function pad(widget, top, bottom, left)
                                padding_bottom = px(bottom or 0), padding_left = px(left or 0), widget }
 end
 
--- Rules as in base.html: .rule is 2 px ink, table lines 1 px grey
+-- Rules: 2 px ink, table lines 1 px grey
 local function rule(kind, top, bottom)
     local thick = kind ~= "thin"
     return pad(LineWidget:new{ dimen = Geom:new{ w = CW, h = thick and math.max(2, px(2)) or 1 },
@@ -594,7 +594,7 @@ local function iconButton(name, callback, size)
                             padding_top = px(4), padding_bottom = px(4), g } }
 end
 
--- Page dots in the footer (base.html .dots: 14 px circles, 2 px ring, 9 px apart)
+-- Page dots in the footer (14 px circles, 2 px ring, 9 px apart)
 local PageDots = Widget:extend{ n = 1, cur = 1 }
 function PageDots:init() self.size, self.gap = px(14), px(9) end
 function PageDots:getSize()
@@ -634,7 +634,7 @@ function DotGrid:paintTo(bb, x, y)
     end
 end
 
--- A month of habit cells (habits.html .grid)
+-- A month of habit cells
 local HabitGrid = Widget:extend{ ndays = 30, day = 1, days = nil, width = 100 }
 function HabitGrid:init()
     self.gap = math.max(1, px(2))
@@ -731,7 +731,7 @@ local function eventDetail(e)
     return t
 end
 
--- today.html .ev: 128 px time column, title 24 px, location 20 px grey
+-- An event: 128 px time column, title 24 px, location 20 px grey
 local function eventRow(e, today, show_day)
     local s = parseDate(e.start) or {}
     local lw = px(140)
@@ -757,7 +757,7 @@ local function weatherDetail(day)
         _("wind"), day.wind, day.uv, _("Sunrise"), day.sunrise, _("sunset"), day.sunset)
 end
 
--- todos.html: box, then text; done ones grey and struck through
+-- A to-do: box, then text; done ones grey and struck through
 local function todoRow(dash, t, size)
     size = size or 26
     local g = icon(t.done and "box_checked" or "box", math.floor(size * 1.15), t.done and MID or INK)
@@ -777,7 +777,7 @@ local function errorRows(rows, ...)
 end
 
 Pages.today = {
-    -- today.html masthead: huge day number, weekday, month and year
+    -- Masthead: huge day number, weekday, month and year
     masthead = function(d, all, avail_w)
         local p = parseDate(all.today)
         if not p then return text(_("Today"), { style = "display", size = 56 }) end
@@ -868,7 +868,7 @@ Pages.agenda = {
     end,
 }
 
--- weather.html: now at the top, then a table of 7 days
+-- Now at the top, then a table of 7 days
 Pages.weather = {
     title = function(d, all) return _("Weather"), all.location end,
     body = function(dash, d, h, all)
@@ -964,7 +964,7 @@ Pages.countdowns = {
 }
 
 Pages.dots = {
-    -- dots.html head: the count first, then "days left <name>" and the end date
+    -- Head: the count first, then "days left <name>" and the end date
     masthead = function(d, all, avail_w)
         local left = math.max(d.left or 0, 0)
         local num = text(tostring(left), { style = "display", size = 120, tight = true })
@@ -1140,7 +1140,7 @@ function Dash:header(page)
     return OverlapGroup:new{ dimen = Geom:new{ w = CW + px(12), h = hh }, left, btns }
 end
 
--- base.html footer: 1 px grey line, "Updated HH:MM" left, page dots right
+-- Footer: 1 px grey line, "Updated HH:MM" left, page dots right
 function Dash:footer()
     local pages = self:pages()
     local updated = self.data and self.data.updated and self.data.updated:match("T(%d%d:%d%d)")
@@ -1167,7 +1167,7 @@ function Dash:view()
                 ImageWidget:new{ file = CACHE .. "/photo.png", file_do_cache = false,
                                  width = W, height = H, scale_factor = 0 } } }
     end
-    local top, bottom = px(44), px(30)          -- base.html body padding and footer offset
+    local top, bottom = px(44), px(30)          -- top padding and footer offset
     local hdr, ftr = self:header(page), self:footer()
     local gap = (Pages[page.name] or {}).masthead and 0 or px(26)
     local body_h = H - top - hdr:getSize().h - gap - ftr:getSize().h - bottom - px(12)

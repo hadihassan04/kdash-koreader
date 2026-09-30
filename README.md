@@ -22,6 +22,12 @@ Changes show on screen straight away. If the commit fails (no Wi-Fi, a bad token
 or the file changed elsewhere), the change is undone and a message says why.
 While open, it refreshes every 30 minutes, and after a wake if the data is older than that.
 
+**Timed refresh:** while the dashboard is open and the Kindle is asleep, it wakes
+itself at 7:00, 12:00, 17:00 and 21:00, refreshes (about 30 seconds) and goes back
+to sleep, so the sleeping screen stays current. Change the times, or turn it off,
+in Tools > Dashboard (kdash) > Timed refresh (hours or HH:MM, comma separated).
+It uses KOReader's wakeup manager, which on a Kindle sets powerd's RTC alarm.
+
 Developed for a Kindle Paperwhite 2 (758x1024) and checked in KOReader's desktop build. Sizes scale with the screen width.
 
 ## What it needs

@@ -61,9 +61,12 @@ local Screen = Device.screen
 local OUT_BRANCH = "out"
 local MAIN_BRANCH = "main"                      -- to-do and habit edits are committed here
 local WORKFLOW = "render.yml"                   -- Refresh runs this workflow first
-local RENDER_WAIT = 180                         -- seconds to wait for that render
-local POLL_EVERY = 10                           -- seconds between checks while waiting
+local RENDER_WAIT = 60                          -- seconds to wait for that render (it takes ~20)
+local POLL_EVERY = 5                            -- seconds between checks while waiting
 local STALE_MIN = 30                            -- older data re-renders on open and on wake
+-- While the dashboard is open, the Kindle wakes itself at these times (menu:
+-- Timed refresh), refreshes and sleeps again. Hours, or HH:MM, comma separated.
+local WAKE_TIMES = "7, 12, 17, 21"
 -- "Update plugin" downloads the plugin's files from this public repo
 local PLUGIN_URL = "https://raw.githubusercontent.com/hadihassan04/kdash-koreader/main/kdash.koplugin/"
 -- The repo ("owner/name") and token are set in the plugin's menu. If not, they're
@@ -264,6 +267,26 @@ end
 
 local function getToken() return setting("kdash_token", TOKEN_FILE) end
 local function getRepo() return setting("kdash_repo", REPO_FILE) end
+
+local function wakeSetting() return G_reader_settings:readSetting("kdash_wake_times") or WAKE_TIMES end
+
+-- Seconds until the next timed refresh, or nil if none are set
+local function secondsToNextWake()
+    local now = os.time()
+    local t = os.date("*t", now)
+    local best
+    for hs, ms in wakeSetting():gmatch("(%d+):?(%d*)") do
+        local h, m = tonumber(hs), tonumber(ms) or 0
+        if h < 24 and m < 60 then
+            local at = os.time{ year = t.year, month = t.month, day = t.day, hour = h, min = m, sec = 0 }
+            if at <= now + 60 then
+                at = os.time{ year = t.year, month = t.month, day = t.day + 1, hour = h, min = m, sec = 0 }
+            end
+            if not best or at < best then best = at end
+        end
+    end
+    return best and best - now
+end
 
 -- Call the GitHub API for the configured repo. Returns the body, or nil and an error text.
 local function api(method, path, accept, body)
@@ -1200,6 +1223,7 @@ function Dash:onClose()
     self.closed = true
     if self.poll then UIManager:unschedule(self.poll) end
     if self.timer then UIManager:unschedule(self.timer) end
+    self:unscheduleWake()
     UIManager:close(self)
     UIManager:setDirty(nil, "full")
     return true
@@ -1220,7 +1244,7 @@ end
 -- Fetch data.json (and the photo). render=true first asks GitHub to render fresh data.
 function Dash:refresh(render)
     if self.busy then return end
-    NetworkMgr:runWhenOnline(function()
+    local function go()
         if self.closed then return end
         if not render then return self:download() end
         self:setBusy(_("Starting render…"))
@@ -1232,7 +1256,9 @@ function Dash:refresh(render)
             return self:download()
         end
         self:waitForRender(before)
-    end)
+    end
+    -- A timed wake turns Wi-Fi on without asking; nobody is there to answer
+    if self.timed_wake then NetworkMgr:turnOnWifiAndWaitForConnection(go) else NetworkMgr:runWhenOnline(go) end
 end
 
 function Dash:waitForRender(before)
@@ -1259,7 +1285,8 @@ function Dash:download()
     if not d then
         self.busy = nil
         self:rebuild("ui")
-        return toast(_("Download failed: ") .. (err or _("data.json is not valid (render not updated yet?)")))
+        toast(_("Download failed: ") .. (err or _("data.json is not valid (render not updated yet?)")))
+        return self:timedWakeDone()
     end
     writeFile(CACHE .. "/data.json", body)
     for __, p in ipairs(d.pages or {}) do
@@ -1270,6 +1297,7 @@ function Dash:download()
     end
     self.data, self.busy = d, nil
     self:rebuild("full")
+    self:timedWakeDone()
 end
 
 -- Refresh every STALE_MIN while open, and after waking if the data is old
@@ -1283,9 +1311,57 @@ function Dash:startTimer()
 end
 
 function Dash:onResume()
-    if not self.closed and self:ageMin() >= STALE_MIN then
+    if self.closed then return end
+    if self.timed_wake then
+        UIManager:scheduleIn(2, function() self:refresh(true) end)
+        -- Sleep again even if the refresh hangs
+        self.wake_guard = function() self:timedWakeDone() end
+        UIManager:scheduleIn(RENDER_WAIT + 60, self.wake_guard)
+    elseif self:ageMin() >= STALE_MIN then
         UIManager:scheduleIn(2, function() self:refresh(true) end)   -- let Wi-Fi come back first
     end
+end
+
+-- Timed refresh: KOReader's WakeupMgr sets the Kindle's RTC alarm when it goes to
+-- sleep. On that alarm we wake the Kindle fully (powerd's wakeUp), onResume
+-- refreshes, and timedWakeDone puts it back to sleep with the new data on screen.
+function Dash:scheduleWake()
+    local mgr = Device.wakeup_mgr
+    if not mgr then return end
+    self:unscheduleWake()
+    local secs = secondsToNextWake()
+    if not secs then return end
+    self.wake_task = function() self:onTimedWake() end
+    mgr:addTask(secs, self.wake_task)
+    logger.info("kdash: next timed refresh in", secs, "s, at", os.date("%a %H:%M", os.time() + secs))
+end
+
+function Dash:unscheduleWake()
+    if self.wake_task and Device.wakeup_mgr then Device.wakeup_mgr:removeTasks(nil, self.wake_task) end
+    self.wake_task = nil
+end
+
+function Dash:onTimedWake()
+    logger.info("kdash: timed wake")
+    -- WakeupMgr removes the task that is running; don't remove it here, just add the next
+    self.wake_task = nil
+    self:scheduleWake()
+    if self.closed then return end
+    self.timed_wake = true
+    local lipc = Device.powerd and Device.powerd.lipc_handle
+    local ok = lipc and pcall(lipc.set_int_property, lipc, "com.lab126.powerd", "wakeUp", 1)
+    if not ok then                   -- no powerd: refresh as we are, then sleep
+        logger.warn("kdash: couldn't wake the Kindle via powerd; refreshing in the screensaver")
+        self:onResume()
+    end
+end
+
+function Dash:timedWakeDone()
+    if not self.timed_wake then return end
+    self.timed_wake = nil
+    if self.wake_guard then UIManager:unschedule(self.wake_guard) end
+    logger.info("kdash: timed refresh done, sleeping")
+    UIManager:scheduleIn(3, function() UIManager:suspend() end)   -- let the e-ink finish drawing
 end
 
 -- Same to-do on every page (today's list and the full list)
@@ -1436,6 +1512,9 @@ function Kdash:addToMainMenu(menu_items)
             { text = _("Set GitHub token"), keep_menu_open = true, callback = function()
                 self:ask("kdash_token", _("GitHub token"), _("Fine-grained token for that repo only: Contents and Actions, read and write. Used instead of ") .. TOKEN_FILE .. ".")
             end },
+            { text = _("Timed refresh"), keep_menu_open = true, callback = function()
+                self:ask("kdash_wake_times", _("Timed refresh"), _("While the dashboard is open and the Kindle sleeps, it wakes at these times, refreshes and sleeps again. Hours or HH:MM, comma separated, e.g. 7, 12, 17, 21:30. Empty turns it off."), wakeSetting())
+            end },
             { text = _("Update plugin"), callback = function() self:update() end },
         },
     }
@@ -1445,6 +1524,7 @@ function Kdash:onShowKdash()
     local dash = Dash:new{}
     UIManager:show(dash)
     dash:startTimer()
+    dash:scheduleWake()
     if dash:ageMin() >= STALE_MIN then
         UIManager:scheduleIn(0.5, function() dash:refresh(true) end)
     end
@@ -1486,11 +1566,11 @@ function Kdash:update()
     end)
 end
 
-function Kdash:ask(key, title, description)
+function Kdash:ask(key, title, description, default)
     local dlg
     dlg = InputDialog:new{
         title = title,
-        input = G_reader_settings:readSetting(key) or "",
+        input = G_reader_settings:readSetting(key) or default or "",
         description = description,
         buttons = { {
             { text = _("Cancel"), id = "close", callback = function() UIManager:close(dlg) end },

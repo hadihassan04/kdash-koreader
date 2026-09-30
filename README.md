@@ -5,6 +5,8 @@ to taps. It reads one `data.json` from a GitHub repo and shows it as swipeable
 pages: today, agenda, weather, to-dos, countdowns, a days-left dot grid, reading
 list, habits, quote of the day and a photo.
 
+![Six of the pages: today, agenda, weather, to-dos, habits and the days-left dots](docs/screenshots.png)
+
 | Tap | Does |
 |---|---|
 | An event (today, agenda) | Shows time, place, deadline |
@@ -46,13 +48,14 @@ Keep this repo separate from the plugin, and private: it holds your to-dos,
 habits, photo and settings, and its secrets (such as the calendar's .ics link)
 are GitHub Actions secrets there, never on the device.
 
-This repo doesn't include a generator. Write one in any language that produces
-the JSON below (the author's is a Python script on GitHub Actions that fetches
-weather, an iCal calendar, RSS and arXiv, and takes about 20 seconds a run).
-Branch, workflow and refresh timings are constants at the top of
-`kdash.koplugin/main.lua`.
+`generator/` is a ready-made one: a Python script and workflow that fetch the
+weather, your calendar, RSS and arXiv on GitHub Actions in about 20 seconds.
+Copy it into your own private repo; [generator/README.md](generator/README.md)
+has the steps. Anything else that writes the same JSON works too. Branch,
+workflow and refresh timings are constants at the top of `kdash.koplugin/main.lua`.
 
 ## Install
+First set up the data repo (see above and `generator/README.md`). Then:
 1. Install KOReader (https://github.com/koreader/koreader/releases; for a
    Paperwhite 2 that's `koreader-kindlepw2-<version>.zip`).
 2. Copy `kdash.koplugin/` to `koreader/plugins/`, and `fonts/literata/` to

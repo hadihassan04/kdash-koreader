@@ -1,0 +1,41 @@
+name: Render dashboard
+
+# No schedule: the Kindle starts this workflow (workflow_dispatch) each time it
+# wakes to refresh, so renders only happen when someone will see them.
+on:
+  push:
+    branches: [main]            # editing todos.md or config.yaml re-renders right away
+  workflow_dispatch:            # started by the Kindle, or the "Run workflow" button
+
+permissions:
+  contents: write              # to push data.json to the "out" branch
+
+concurrency:
+  group: render
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Build data.json
+        run: python render.py
+        env:
+          ICS_URLS: ${{ secrets.ICS_URLS }}
+      # The repo is private, so the Kindle downloads from the "out" branch with a
+      # read-only token. The branch is replaced each run to keep history small.
+      - name: Publish to the out branch
+        working-directory: out
+        run: |
+          git init -q -b out
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Render $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" out

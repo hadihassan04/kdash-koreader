@@ -1,0 +1,6 @@
+requests
+pyyaml
+pillow
+icalendar
+recurring-ical-events
+feedparser

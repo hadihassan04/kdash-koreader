@@ -1,0 +1,37 @@
+# Dashboard settings. The calendar link(s) go in the ICS_URLS repo secret, not here.
+# Any key can also be set in data/settings.json, which overrides this file for
+# pages, countdowns, dots, feeds and arxiv.
+timezone: Europe/London           # a tz database name
+location:                         # for the weather (Open-Meteo, no key needed)
+  name: London
+  lat: 51.5074
+  lon: -0.1278
+
+# Pages in order. Leave one out to hide it; pages with nothing set up hide themselves.
+pages: [today, quote, agenda, weather, todos, countdowns, dots, reading, habits, photo]
+
+agenda_days: 7
+# Calendar events whose title contains one of these are marked as deadlines
+# (bold, and added to the countdowns)
+deadline_keywords: [deadline, due, submit, submission, exam]
+# Deadline events from the calendar within this many days are added to the countdowns
+countdown_calendar_days: 60
+
+countdowns:
+  - {name: New Year, date: 2027-01-01}
+
+# The dots page: one dot per day from start to end, the days gone filled in
+dots:
+  name: in 2026
+  start: 2026-01-01
+  end: 2027-01-01
+
+# The reading page: RSS/Atom feeds and arXiv searches
+feeds:
+  - {name: BBC World, url: "https://feeds.bbci.co.uk/news/world/rss.xml", max: 4}
+  - {name: Hacker News, url: "https://hnrss.org/frontpage", max: 4}
+arxiv:
+  - {name: Machine learning, query: "cat:cs.LG", max: 3}
+
+# The screen. Sizes scale from 758x1024 (Kindle Paperwhite 2).
+screen: {width: 758, height: 1024, greys: 16}

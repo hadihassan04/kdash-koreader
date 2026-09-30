@@ -44,11 +44,13 @@ On GitHub: a repo (it can be private) with:
 
 Keep this repo separate from the plugin, and private: it holds your to-dos,
 habits, photo and settings, and its secrets (such as the calendar's .ics link)
-are GitHub Actions secrets there, never on the device. The kdash renderer (a
-Python script that fetches weather, an iCal calendar, RSS and arXiv on GitHub
-Actions) writes exactly this: just `data.json` and the photo, with no browser
-and no page images. Anything that writes the same JSON works too. Branch, workflow and refresh timings are constants at
-the top of `kdash.koplugin/main.lua`.
+are GitHub Actions secrets there, never on the device.
+
+This repo doesn't include a generator. Write one in any language that produces
+the JSON below (the author's is a Python script on GitHub Actions that fetches
+weather, an iCal calendar, RSS and arXiv, and takes about 20 seconds a run).
+Branch, workflow and refresh timings are constants at the top of
+`kdash.koplugin/main.lua`.
 
 ## Install
 1. Install KOReader (https://github.com/koreader/koreader/releases; for a
@@ -87,7 +89,7 @@ change the plugin. Fonts aren't updated this way.
 ## data.json
 ```json
 {
-  "updated": "2026-09-30T20:38+02:00",
+  "updated": "2026-09-30T20:38Z",
   "today": "2026-09-30",
   "location": "City name",
   "pages": [

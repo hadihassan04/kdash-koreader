@@ -227,7 +227,7 @@ local function decode(s)
     if ok and type(v) == "table" then return denull(v) end
 end
 
--- "2026-09-30" or "2026-09-30T16:00:00+02:00" -> parts
+-- "2026-09-30" or "2026-09-30T16:00:00Z" -> parts
 local function parseDate(iso)
     local y, m, d = (iso or ""):match("^(%d+)-(%d+)-(%d+)")
     if not y then return nil end

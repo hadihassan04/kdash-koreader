@@ -65,6 +65,13 @@ the top of `kdash.koplugin/main.lua`.
    General > Dashboard (kdash) to a gesture in Settings > Taps and gestures >
    Gesture manager.
 
+## Updating
+Tools > Dashboard (kdash) > Update plugin downloads the latest `main.lua` and
+`_meta.lua` from this repo's `main` branch, checks that they load, replaces the
+installed ones and offers to restart KOReader. No USB needed. The URL is
+`PLUGIN_URL` at the top of `kdash.koplugin/main.lua`; point it at your fork if you
+change the plugin. Fonts aren't updated this way.
+
 ## Recommended KOReader settings
 - **Sleep screen:** Settings > Screen > Sleep screen > Wallpaper > "Leave screen
   as-is". The dashboard then stays on screen while the device sleeps.

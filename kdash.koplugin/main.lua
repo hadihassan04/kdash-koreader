@@ -64,6 +64,8 @@ local WORKFLOW = "render.yml"                   -- Refresh runs this workflow fi
 local RENDER_WAIT = 180                         -- seconds to wait for that render
 local POLL_EVERY = 10                           -- seconds between checks while waiting
 local STALE_MIN = 30                            -- older data re-renders on open and on wake
+-- "Update plugin" downloads the plugin's files from this public repo
+local PLUGIN_URL = "https://raw.githubusercontent.com/hadihassan04/kdash-koreader/main/kdash.koplugin/"
 -- The repo ("owner/name") and token are set in the plugin's menu. If not, they're
 -- read from repo.txt and token.txt in koreader/kdash/ (easier than typing a token).
 local CONF_DIR = DataStorage:getDataDir() .. "/kdash"
@@ -1412,6 +1414,7 @@ end
 local Kdash = WidgetContainer:extend{ name = "kdash", is_doc_only = false }
 
 function Kdash:init()
+    layout()                         -- toasts and dialogs from the menu need the sizes too
     self:onDispatcherRegisterActions()
     self.ui.menu:registerToMainMenu(self)
 end
@@ -1433,6 +1436,7 @@ function Kdash:addToMainMenu(menu_items)
             { text = _("Set GitHub token"), keep_menu_open = true, callback = function()
                 self:ask("kdash_token", _("GitHub token"), _("Fine-grained token for that repo only: Contents and Actions, read and write. Used instead of ") .. TOKEN_FILE .. ".")
             end },
+            { text = _("Update plugin"), callback = function() self:update() end },
         },
     }
 end
@@ -1445,6 +1449,41 @@ function Kdash:onShowKdash()
         UIManager:scheduleIn(0.5, function() dash:refresh(true) end)
     end
     return true
+end
+
+-- Download the latest plugin files, check they compile, replace them, then
+-- offer a restart. Nothing is written unless every file downloaded fine.
+function Kdash:update()
+    NetworkMgr:runWhenOnline(function()
+        toast(_("Checking for an update…"))
+        UIManager:forceRePaint()
+        local dir = self.path or (DataStorage:getDataDir() .. "/plugins/kdash.koplugin")
+        local files, changed = {}, false
+        for __, name in ipairs({ "_meta.lua", "main.lua" }) do
+            local sink = {}
+            socketutil:set_timeout(socketutil.LARGE_BLOCK_TIMEOUT, socketutil.LARGE_TOTAL_TIMEOUT)
+            local code = socket.skip(1, http.request{ url = PLUGIN_URL .. name, headers = { ["User-Agent"] = "kdash" },
+                                                      sink = ltn12.sink.table(sink) })
+            socketutil:reset_timeout()
+            local body = table.concat(sink)
+            if code ~= 200 then
+                return info(_("Update failed: ") .. name .. " " .. tostring(code or _("no connection")))
+            end
+            local ok, err = loadstring(body, name)
+            if not ok then return info(_("Update failed: the new ") .. name .. _(" doesn't load: ") .. tostring(err)) end
+            files[name] = body
+            if body ~= readFile(dir .. "/" .. name) then changed = true end
+        end
+        if not changed then return info(_("kdash is up to date.")) end
+        for name, body in pairs(files) do
+            local path = dir .. "/" .. name
+            if not writeFile(path, body) then
+                return info(_("Update failed: couldn't write ") .. path)
+            end
+        end
+        logger.info("kdash: plugin updated from", PLUGIN_URL)
+        UIManager:askForRestart(_("kdash was updated. Restart KOReader to use the new version."))
+    end)
 end
 
 function Kdash:ask(key, title, description)

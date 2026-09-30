@@ -1,16 +1,16 @@
 --[[--
 kdash for KOReader: the dashboard pages drawn natively, so they can be tapped.
 
-The render (render.py on GitHub Actions) writes data.json to the "out" branch
-next to the PNGs. This plugin downloads it and lays each page out with KOReader
-widgets. Swipe left/right between pages, swipe down or Close to leave.
+The render (render.py on GitHub Actions, in your own data repo) writes data.json,
+and the photo page's PNG, to the "out" branch. This plugin downloads them and
+lays each page out with KOReader widgets. Swipe left/right between pages, swipe down or Close to leave.
 
 Taps:
   event or forecast day  -> details
   to-do                  -> tick/untick (commits data/todos.md)
   habit                  -> tick/untick today (commits data/habits.md)
   headline               -> QR code of the link
-A commit to main starts a render, so the PNG pages (kdash.py) catch up too.
+A commit to main starts a render, so data.json catches up.
 
 Open it from Tools > Dashboard (kdash), or bind "Dashboard (kdash)" to a gesture.
 ]]
@@ -1133,7 +1133,7 @@ function Dash:view()
     local pages = self:pages()
     if self.idx > #pages then self.idx = 1 end
     local page = pages[self.idx] or { name = "empty", data = {} }
-    -- The photo is the rendered (dithered) PNG, shown full screen
+    -- The photo is the render's dithered PNG, shown full screen
     if page.name == "photo" and lfs.attributes(CACHE .. "/photo.png", "mode") == "file" then
         return FrameContainer:new{ bordersize = 0, padding = 0, margin = 0, background = PAPER,
             width = W, height = H,

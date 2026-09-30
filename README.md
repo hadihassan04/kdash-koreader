@@ -36,9 +36,12 @@ On GitHub: a repo (it can be private) with:
   (this is what Refresh starts);
 - `data/todos.md` and `data/habits.md` on `main`, if you want tapping to save.
 
-The kdash renderer (a Python script that fetches weather, an iCal calendar, RSS
-and arXiv, and runs on GitHub Actions) produces exactly this. Anything that writes
-the same JSON works too. Branch, workflow and refresh timings are constants at
+Keep this repo separate from the plugin, and private: it holds your to-dos,
+habits, photo and settings, and its secrets (such as the calendar's .ics link)
+are GitHub Actions secrets there, never on the device. The kdash renderer (a
+Python script that fetches weather, an iCal calendar, RSS and arXiv on GitHub
+Actions) writes exactly this: just `data.json` and the photo, with no browser
+and no page images. Anything that writes the same JSON works too. Branch, workflow and refresh timings are constants at
 the top of `kdash.koplugin/main.lua`.
 
 ## Install
@@ -74,7 +77,10 @@ the top of `kdash.koplugin/main.lua`.
   "updated": "2026-09-30T20:38+02:00",
   "today": "2026-09-30",
   "location": "City name",
-  "pages": [ { "name": "today", "png": "page1.png", "data": { } } ]
+  "pages": [
+    { "name": "today", "data": { } },
+    { "name": "photo", "png": "photo.png", "data": { } }
+  ]
 }
 ```
 - Pages show in the order listed. A page is drawn from its `data`.
@@ -92,7 +98,7 @@ the top of `kdash.koplugin/main.lua`.
 | reading | `sections`: list of `{name, entries: [{title, meta, link}]}` |
 | habits | `habits`: `{month, ndays, day, rows: [{name, days, count, streak}]}` |
 | quote | `quote`: `{text, author}`, `word`: `{word, kind, meaning, example}` |
-| photo | none; the page's `png` is downloaded from `out` and shown full screen |
+| photo | none; its `png` (a path on `out`) is downloaded and shown full screen. Only the photo page has a `png` |
 
 - An event is `{title, location, allday, start, end, deadline}`.
 - `weather` is `{temp, feels, desc, wind, uv, hours: [{time, temp, rain}], days: [{date, desc, hi, lo, rain, wind, uv, sunrise, sunset}]}`.

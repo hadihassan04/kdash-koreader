@@ -62,9 +62,7 @@ to-dos, habits, countdowns, the dots page, feeds and arXiv searches, quotes and
 words, photos, and the location and calendar options. It also starts a
 refresh. It asks only for the token (the same one as the Kindle), kept in that
 browser. It's `generator/portal/`; see [generator/README.md](generator/README.md)
-to switch it on. This repo's copy, at
-https://hadihassan04.github.io/kdash-koreader/, uses the data repo in the
-`KDASH_DATA_REPO` repository variable (owner/name); without it, it asks for one.
+to switch it on.
 
 ## Install
 First set up the data repo (see above and `generator/README.md`). Then:

@@ -1,8 +1,8 @@
 name: Deploy portal
 
 # Publishes the companion page (generator/portal/) on this repo's GitHub Pages,
-# for anyone to use with their own data repo: it asks for the repo and a token,
-# kept in the browser. Data repos publish their own copy (generator/.github/).
+# for the data repo named in the KDASH_DATA_REPO variable (or, without it, any
+# data repo: it asks which). Data repos publish their own copy (generator/.github/).
 on:
   push:
     branches: [main]
@@ -27,8 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-      # Not a data repo: the page asks which repo to use
-      - run: sed -i "s|__KDASH_REPO__|-|" generator/portal/index.html
+      # The data repo to use, from the KDASH_DATA_REPO repository variable
+      # (owner/name). Unset, the page asks for one.
+      - run: sed -i "s|__KDASH_REPO__|${{ vars.KDASH_DATA_REPO || '-' }}|" generator/portal/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: generator/portal

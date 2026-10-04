@@ -5,355 +5,393 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>kdash</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Libre+Caslon+Display&family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 <!--
   Companion page for kdash (github.com/hadihassan04/kdash-koreader), published by
   the data repo's own GitHub Pages. Static, with no data of its own: it reads and
   writes that repo through the GitHub API with a token you paste in once (kept in
   this browser only).
-  Edits data/settings.json and data/todos.md; each save is a commit, which
-  rebuilds data.json for the Kindle.
+
+  It shows every page as the Kindle draws it (from out/data.json, with your
+  unsaved edits applied) and edits what each page is made from:
+  data/settings.json, data/todos.md, data/habits.md, data/quotes.yaml,
+  data/words.yaml and photos/. Each save is a commit, which rebuilds data.json.
 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Libre+Caslon+Display&family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Literata:ital,opsz,wght@0,7..72,400..800;1,7..72,400&display=swap" rel="stylesheet">
+<!-- The Kindle's icons: Weather Icons and Font Awesome 4, the same glyphs KOReader ships -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
 <style>
   :root {
     --paper:#fff; --ink:#121212; --body:#333; --mid:#5a5a5a; --faint:#8a8a8a;
-    --rule:#dfdfdf; --heavy:#121212; --wash:#f7f7f5; --accent:#326891;
+    --rule:#dfdfdf; --heavy:#121212; --wash:#f7f7f5; --accent:#326891; --danger:#b3261e;
     --display:"Libre Caslon Display", "Times New Roman", serif;
     --serif:"Source Serif 4", Georgia, serif;
     --sans:"Libre Franklin", "Helvetica Neue", Arial, sans-serif;
     --black:"UnifrakturMaguntia", "Old English Text MT", serif;
+    --book:"Literata", Georgia, serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --paper:#121212; --ink:#ededeb; --body:#cfcfcc; --mid:#a3a3a0; --faint:#77776f;
-      --rule:#2c2c2a; --heavy:#ededeb; --wash:#1b1b1a; --accent:#8db5d6;
+      --rule:#2c2c2a; --heavy:#ededeb; --wash:#1b1b1a; --accent:#8db5d6; --danger:#ff8a80;
     }
   }
   :root[data-theme="dark"] {
     --paper:#121212; --ink:#ededeb; --body:#cfcfcc; --mid:#a3a3a0; --faint:#77776f;
-    --rule:#2c2c2a; --heavy:#ededeb; --wash:#1b1b1a; --accent:#8db5d6;
+    --rule:#2c2c2a; --heavy:#ededeb; --wash:#1b1b1a; --accent:#8db5d6; --danger:#ff8a80;
   }
   * { box-sizing:border-box; }
   html { -webkit-text-size-adjust:100%; }
   body { margin:0; background:var(--paper); color:var(--body); font:17px/1.5 var(--serif); }
-  .sheet { max-width:1180px; margin:0 auto; padding:0 16px 64px; }
+  .sheet { max-width:1280px; margin:0 auto; padding:0 16px 48px; }
   a { color:inherit; }
-  button, input { font:inherit; color:inherit; }
+  button, input, select, textarea { font:inherit; color:inherit; }
   [hidden] { display:none !important; }
+  :focus-visible { outline:1px solid var(--ink); outline-offset:2px; }
 
-  /* Masthead */
-  .ears { display:flex; justify-content:flex-end; gap:16px; padding:14px 0 0;
+  /* ---------------------------------------------------------------- masthead */
+  .ears { display:flex; justify-content:space-between; gap:16px; padding:14px 0 0;
           font:500 11px/1.3 var(--sans); letter-spacing:.04em; color:var(--mid); }
-  .ears span:last-child { text-align:right; }
-  .flag { text-align:center; font:400 clamp(40px, 8vw, 76px)/1 var(--black); color:var(--ink);
+  .flag { text-align:center; font:400 clamp(38px, 8vw, 76px)/1 var(--black); color:var(--ink);
           margin:10px 0 12px; letter-spacing:.01em; }
-  .dateline { display:flex; justify-content:space-between; align-items:center; gap:12px;
+  .dateline { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
               border-top:1px solid var(--heavy); border-bottom:3px double var(--heavy);
               padding:7px 0; font:600 11px/1.2 var(--sans); letter-spacing:.08em;
               text-transform:uppercase; color:var(--ink); }
-  .dateline .status { font-weight:500; color:var(--mid); text-transform:none; letter-spacing:.02em; }
-  .dateline .status.err { color:#b3261e; }
-  .sections { display:flex; justify-content:center; flex-wrap:wrap; gap:4px 22px; padding:9px 0;
-              border-bottom:1px solid var(--rule); font:500 12px/1.2 var(--sans); }
-  .sections a { text-decoration:none; color:var(--ink); }
-  .sections a:hover { text-decoration:underline; text-underline-offset:3px; }
-
-  /* Grid: columns divided by hairlines, like a broadsheet */
-  .row { display:grid; gap:0; border-bottom:1px solid var(--rule); }
-  .row > section { padding:22px 0 26px; min-width:0; }
-  @media (min-width: 860px) {
-    .row.lead { grid-template-columns: 1.35fr 1fr; }
-    .row.three { grid-template-columns: 1fr 1fr 1fr; }
-    .row.two { grid-template-columns: 1.4fr 1fr; }
-    .row > section + section { border-left:1px solid var(--rule); padding-left:24px; }
-    .row > section:not(:last-child) { padding-right:24px; }
-  }
-  @media (max-width: 859px) {
-    .row > section + section { border-top:1px solid var(--rule); }
-  }
-  .kicker { font:700 11px/1.2 var(--sans); letter-spacing:.1em; text-transform:uppercase;
-            color:var(--ink); margin:0 0 8px; }
-  h2 { font:400 30px/1.12 var(--display); color:var(--ink); margin:0 0 6px; }
-  .lead h2 { font-size:clamp(30px, 4vw, 40px); }
-  .dek { font-style:italic; color:var(--mid); margin:0 0 16px; font-size:16px; }
-  .note { font:400 13px/1.45 var(--sans); color:var(--mid); }
+  .state { font-weight:500; color:var(--mid); text-transform:none; letter-spacing:.02em; display:flex; gap:8px; align-items:center; }
+  .state.err { color:var(--danger); }
+  .state .pulse { width:6px; height:6px; border-radius:50%; background:var(--ink); flex:none; }
+  .state.busy .pulse { animation:pulse 1.1s ease-in-out infinite; }
+  .state:not(.busy) .pulse { display:none; }
+  @keyframes pulse { 50% { opacity:.2; } }
+  .dateline .right { display:flex; align-items:center; gap:18px; }
 
   /* Buttons read as small type, not chrome */
-  .link { background:none; border:0; padding:0; cursor:pointer; font:600 11px/1 var(--sans);
-          letter-spacing:.08em; text-transform:uppercase; color:var(--ink); }
-  .link:hover { text-decoration:underline; text-underline-offset:3px; }
-  .link.quiet { color:var(--faint); font-weight:500; }
-  .link:disabled { color:var(--rule); cursor:default; text-decoration:none; }
-  .field { width:100%; border:0; border-bottom:1px solid var(--rule); background:transparent;
-           padding:7px 0; outline:none; border-radius:0; }
-  .field:focus { border-bottom-color:var(--ink); }
-  .field.small { font:400 14px/1.3 var(--sans); }
-  .add { display:flex; gap:14px; align-items:flex-end; margin-top:14px; }
-  .add .field { flex:1; }
+  .btn, .txt { background:none; border:0; padding:0; cursor:pointer; font:600 11px/1.2 var(--sans);
+               letter-spacing:.08em; text-transform:uppercase; color:var(--ink); }
+  .btn:hover, .txt:hover { text-decoration:underline; text-underline-offset:3px; }
+  .btn.primary { background:var(--ink); color:var(--paper); padding:8px 12px; }
+  .btn.primary:hover { text-decoration:none; opacity:.85; }
+  .txt.quiet { color:var(--faint); font-weight:500; }
+  .txt.danger { color:var(--faint); font-weight:500; }
+  .txt.danger:hover { color:var(--danger); }
+  .btn:disabled, .txt:disabled { color:var(--rule); cursor:default; text-decoration:none; }
 
-  /* Front page: the Kindle as a photograph */
-  .figure { margin:0; }
-  .frame { background:var(--wash); border:1px solid var(--rule); padding:18px;
-           display:flex; justify-content:center; }
-  .frame img { width:100%; max-width:360px; aspect-ratio:758/1024; display:block;
-               background:#fff; border:1px solid #cfcfcf; }
-  .frame .empty { width:100%; max-width:360px; aspect-ratio:758/1024; display:flex;
-                  align-items:center; justify-content:center; text-align:center; padding:24px;
-                  font:400 13px/1.5 var(--sans); color:var(--mid); border:1px dashed var(--rule); }
-  figcaption { display:flex; justify-content:space-between; align-items:baseline; gap:12px;
-               margin-top:9px; font:400 13px/1.4 var(--sans); color:var(--mid); }
-  figcaption .nav { display:flex; gap:16px; flex:none; }
-  .kcard { width:100%; max-width:360px; aspect-ratio:758/1024; margin:0 auto; background:var(--paper);
-           border:1px solid var(--rule); padding:22px 22px 16px; box-sizing:border-box; overflow:hidden;
-           font:400 15px/1.35 var(--serif); color:var(--ink); }
-  .kdate { display:flex; align-items:flex-end; gap:12px; padding-bottom:10px; border-bottom:2px solid var(--heavy); }
-  .kdate b { font:400 72px/.8 var(--display); }
-  .kdate strong { display:block; font:600 22px/1.1 var(--serif); }
-  .kdate small { display:block; color:var(--mid); font-size:14px; }
-  .kweather { padding:12px 0 10px; border-bottom:2px solid var(--heavy); }
-  .kweather b { font:400 40px/1 var(--display); margin-right:10px; vertical-align:-4px; }
-  .kweather small { display:block; color:var(--mid); font:400 12px/1.4 var(--sans); margin-top:4px; }
-  .kcard h3 { font:600 17px/1.2 var(--serif); margin:12px 0 6px; }
-  .kev { padding:4px 0; }
-  .kev small { display:block; font:600 11px/1.3 var(--sans); color:var(--mid); }
-  .kev.deadline span { font-weight:600; }
-  .credit { font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--faint); }
+  /* --------------------------------------------- grid: columns and hairlines */
+  .app { display:grid; grid-template-columns: 210px minmax(300px, 400px) minmax(0, 1fr); align-items:start;
+         border-bottom:1px solid var(--rule); }
+  .app > * { padding:22px 0 30px; min-width:0; }
+  .app > * + * { border-left:1px solid var(--rule); padding-left:24px; }
+  .app > *:not(:last-child) { padding-right:24px; }
+  @media (max-width: 1080px) {
+    .app { grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); }
+    .pages { grid-column:1 / -1; padding-right:0 !important; border-bottom:1px solid var(--rule); }
+    .app > .device { border-left:0; padding-left:0; }
+  }
+  @media (max-width: 720px) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .app > * { border-left:0 !important; padding-left:0 !important; padding-right:0 !important; }
+    .app > .device { border-bottom:1px solid var(--rule); }
+  }
+  .kicker, .pages h2, .editor h3 { font:700 11px/1.2 var(--sans); letter-spacing:.1em; text-transform:uppercase;
+            color:var(--ink); margin:0 0 8px; }
 
-  /* To-dos */
-  .todos { list-style:none; margin:0; padding:0; }
-  .todos li { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--rule); }
-  .todos li:first-child { border-top:1px solid var(--ink); }
-  .box { flex:none; width:18px; height:18px; margin-top:4px; border:1.5px solid var(--ink);
-         background:transparent; cursor:pointer; padding:0; position:relative; }
+  /* Sections: the Kindle's pages, in order. Tick to show, drag to reorder. */
+  .pages { position:sticky; top:0; }
+  @media (max-width: 1080px) { .pages { position:static; } }
+  .plist { list-style:none; margin:0 0 12px; padding:0; }
+  .plist li { display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--rule); background:var(--paper);
+              user-select:none; -webkit-user-select:none; }
+  .plist li:first-child { border-top:1px solid var(--ink); }
+  @media (min-width: 721px) and (max-width: 1080px) {
+    .plist.main { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); column-gap:24px; } }
+  .plist li.dragging { box-shadow:0 6px 18px rgba(0,0,0,.14); outline:1px solid var(--ink); position:relative; z-index:2; }
+  .plist .pick { flex:1; display:flex; align-items:baseline; gap:8px; border:0; background:none; text-align:left;
+                 padding:8px 0; cursor:pointer; min-width:0; }
+  .plist .n { font:600 11px/1 var(--sans); color:var(--mid); width:14px; text-align:right; flex:none; }
+  .plist .name { font:400 19px/1.2 var(--display); color:var(--ink); }
+  .plist .tag { font:400 11px/1.2 var(--sans); color:var(--faint); }
+  .plist li.cur .name { text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:4px; }
+  .plist li.off .name { color:var(--faint); }
+  .grip { flex:none; width:14px; height:21px; padding:8px 4px; box-sizing:content-box; border:0; cursor:grab; touch-action:none;
+          background:radial-gradient(circle, var(--mid) 1.5px, transparent 1.9px) 0 0 / 7px 7px content-box; }
+  .grip:hover { background-image:radial-gradient(circle, var(--ink) 1.5px, transparent 1.9px); }
+  .grip.none { visibility:hidden; }
+  .pages .hint { font:400 12px/1.45 var(--sans); color:var(--mid); margin:0 0 18px; }
+
+  /* Tick boxes: pages, to-dos */
+  .box { flex:none; width:18px; height:18px; border:1.5px solid var(--ink); background:transparent;
+         cursor:pointer; padding:0; position:relative; }
   .box[aria-checked="true"] { background:var(--ink); }
   .box[aria-checked="true"]::after { content:""; position:absolute; left:5px; top:1px; width:5px; height:10px;
          border:solid var(--paper); border-width:0 2px 2px 0; transform:rotate(45deg); }
-  .todos .text { flex:1; min-width:0; overflow-wrap:anywhere; }
-  .todos li.done .text { color:var(--faint); text-decoration:line-through; text-decoration-thickness:1px; }
-  .todos .link { margin-top:6px; }
+  .showon { display:flex; align-items:center; gap:10px; margin:14px 0 0; font:400 14px/1.3 var(--sans); color:var(--ink); cursor:pointer; }
 
-  /* Countdowns */
-  .counts { margin:0; padding:0; list-style:none; }
-  .counts li { display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:baseline;
-               padding:12px 0; border-bottom:1px solid var(--rule); }
-  .counts li:first-child { border-top:1px solid var(--ink); }
-  .counts .n { font:400 40px/1 var(--display); color:var(--ink); min-width:2.2ch; text-align:right; }
-  .counts .what { color:var(--ink); line-height:1.25; }
-  .counts .when { display:block; font:400 12px/1.4 var(--sans); color:var(--mid); margin-top:3px; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  /* ------------------------------------------------------------- the Kindle */
+  .device { position:sticky; top:0; }
+  @media (max-width: 720px) { .device { position:static; } }
+  .frame { background:var(--wash); border:1px solid var(--rule); padding:18px; }
+  .bezel { background:#26292e; border-radius:22px; padding:20px 16px 40px; max-width:360px; margin:0 auto; position:relative;
+           box-shadow:inset 0 0 0 1px #3a3e44; }
+  .bezel::after { content:"kindle"; position:absolute; left:0; right:0; bottom:13px; text-align:center;
+                  font:400 11px/1 var(--sans); letter-spacing:.06em; color:#80868e; }
+  .screen { position:relative; aspect-ratio:758/1024; background:#f2f2ee; overflow:hidden; touch-action:pan-y; cursor:grab; }
+  .screen > .k { position:absolute; left:0; top:0; transform-origin:0 0; transform:scale(var(--k, .5)); }
+  .flash { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; }
+  .flash.go { animation:eink .18s steps(1, end) 1; }
+  @keyframes eink { 0% { opacity:.9; } 100% { opacity:0; } }
+  @media (prefers-reduced-motion: reduce) { .flash.go { animation:none; } }
+  figcaption { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:9px;
+               font:400 13px/1.4 var(--sans); color:var(--mid); }
+  .round { background:none; border:0; cursor:pointer; font:400 26px/1 var(--display); color:var(--ink); padding:0 6px; }
 
-  /* Dots */
-  .tally { display:flex; align-items:baseline; gap:12px; margin:4px 0 12px; }
-  .tally b { font:400 56px/1 var(--display); color:var(--ink); font-weight:400; }
-  .tally span { font-style:italic; color:var(--mid); }
-  .minidots { display:grid; grid-template-columns:repeat(auto-fill, 9px); gap:4px; margin:6px 0 16px; }
-  .minidots i { width:9px; height:9px; border-radius:50%; border:1px solid var(--ink); }
-  .minidots i.g { background:var(--ink); }
-  .minidots i.t { background:var(--faint); border-color:var(--faint); }
-  label.cap { display:block; font:600 10px/1 var(--sans); letter-spacing:.1em; text-transform:uppercase;
-              color:var(--mid); margin-top:12px; }
+  /* ----------------------------------------------------------------- editor */
+  .editor > header { margin-bottom:6px; }
+  .editor h1 { font:400 clamp(30px, 4vw, 40px)/1.12 var(--display); color:var(--ink); margin:0 0 6px; }
+  .editor .about { font-style:italic; color:var(--mid); margin:0; font-size:16px; max-width:62ch; }
+  .notice { font:400 13px/1.45 var(--sans); color:var(--ink); border-left:3px solid var(--ink); padding:2px 0 2px 10px; margin:14px 0 0; }
+  .block { border-top:1px solid var(--ink); padding:12px 0 18px; margin-top:18px; }
+  .block > p, .note { font:400 13px/1.45 var(--sans); color:var(--mid); margin:0 0 10px; max-width:62ch; }
+  .row { display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; }
+  .row > .grow { flex:1; min-width:140px; }
+  label.f { display:block; font:600 10px/1 var(--sans); letter-spacing:.1em; text-transform:uppercase; color:var(--mid); margin:8px 0 2px; }
+  .in { width:100%; border:0; border-bottom:1px solid var(--rule); background:transparent; padding:7px 0;
+        outline:none; border-radius:0; min-width:0; }
+  .in:focus { border-bottom-color:var(--ink); }
+  .in.num { width:52px; text-align:center; font:400 14px/1.3 var(--sans); }
+  .in[type="date"], .in[type="search"], .in.small { font:400 14px/1.3 var(--sans); }
+  /* Fields inside lists read as plain text until you point at them */
+  .in.plain { border-bottom-color:transparent; padding:3px 0; }
+  .in.plain:hover { border-bottom-color:var(--rule); }
+  .in.plain:focus { border-bottom-color:var(--ink); }
+  textarea.in { resize:vertical; border:1px solid var(--rule); padding:10px 12px; font:400 15px/1.6 var(--serif); }
+  textarea.in:focus { border-color:var(--ink); }
+  .fields { display:grid; gap:0 18px; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); margin-bottom:8px; }
 
-  /* Running order */
-  .order { list-style:none; margin:0; padding:0; counter-reset:n; }
-  .order li { display:grid; grid-template-columns:22px 1fr auto; gap:10px; align-items:center;
-              padding:8px 0; border-bottom:1px solid var(--rule); }
-  .order li:first-child { border-top:1px solid var(--ink); }
-  .order li.on::before { counter-increment:n; content:counter(n); font:600 12px/1 var(--sans); color:var(--mid); }
-  .order li.off::before { content:"–"; font:600 12px/1 var(--sans); color:var(--rule); }
-  .order .t { color:var(--ink); line-height:1.2; }
-  .order .t small { display:block; font:400 12px/1.35 var(--sans); color:var(--mid); }
-  .order li.off .t { color:var(--faint); }
-  .order .ctl { display:flex; gap:14px; align-items:center; }
-  .order li.on { cursor:grab; user-select:none; -webkit-user-select:none; background:var(--paper); }
-  /* Grip: six dots drawn in CSS, the handle for dragging on touch screens */
-  .grip { box-sizing:content-box; width:14px; height:21px; padding:10px 8px; border:0; cursor:grab;
-          touch-action:none; flex:none; margin:-10px -4px;
-          background:radial-gradient(circle, var(--mid) 1.5px, transparent 1.9px) 0 0 / 7px 7px;
-          background-origin:content-box; background-clip:content-box; }
-  .grip:hover, .grip:focus-visible { background-image:radial-gradient(circle, var(--ink) 1.5px, transparent 1.9px); }
-  .grip:focus-visible { outline:1px solid var(--ink); outline-offset:2px; }
-  .order li.dragging { cursor:grabbing; position:relative; z-index:2;
-                       box-shadow:0 6px 18px rgba(0,0,0,.14); outline:1px solid var(--ink); }
-  .order li.dragging .grip { cursor:grabbing; }
+  .items { list-style:none; margin:0 0 12px; padding:0; }
+  .items > li { display:flex; gap:14px; align-items:baseline; padding:9px 0; border-bottom:1px solid var(--rule); }
+  .items .body { flex:1; min-width:0; }
+  .items .meta, .meta { font:400 12px/1.4 var(--sans); color:var(--mid); }
+  .items .side { display:flex; gap:14px; align-items:center; flex:none; }
+  .items .big { font:400 32px/1 var(--display); color:var(--ink); min-width:2.2ch; text-align:right; }
+  .items b.name, .items .in.name { font-weight:600; color:var(--ink); }
+  .items .in.url { font:400 13px/1.4 var(--sans); color:var(--mid); }
+  .badge { font:700 10px/1 var(--sans); letter-spacing:.1em; text-transform:uppercase; color:var(--ink); margin-right:8px; }
+  .empty { font-style:italic; color:var(--mid); margin:6px 0 12px; }
+  .items > li.todo { align-items:flex-start; }
+  .items > li.todo .box { margin-top:7px; }
+  li.done .in { color:var(--faint); text-decoration:line-through; text-decoration-thickness:1px; }
+  .add { display:flex; gap:14px; align-items:flex-end; margin-top:10px; }
+  .add .in, .add .grow { flex:1; }
 
-  /* Reading room */
-  .briefs { columns:2 260px; column-gap:28px; column-rule:1px solid var(--rule); }
-  .brief { break-inside:avoid; margin:0 0 18px; }
-  .brief h3 { font:700 11px/1.2 var(--sans); letter-spacing:.1em; text-transform:uppercase;
-              color:var(--ink); border-top:1px solid var(--ink); padding-top:8px; margin:0 0 6px; }
-  .brief a { display:block; text-decoration:none; font:400 19px/1.25 var(--display); color:var(--ink); padding:6px 0; }
+  /* Habit grids you can tap any day of */
+  .habit { padding:10px 0 14px; border-bottom:1px solid var(--rule); }
+  .habit .top { display:flex; gap:14px; align-items:baseline; margin-bottom:8px; }
+  .habit .top .in { font-weight:600; color:var(--ink); }
+  .habit .stat { font:400 12px/1.4 var(--sans); color:var(--mid); white-space:nowrap; }
+  .days, .dow { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:3px; max-width:300px; }
+  .dow { font:600 10px/1 var(--sans); color:var(--mid); text-align:center; margin-bottom:4px; }
+  .days button { aspect-ratio:1; border:1.5px solid var(--ink); background:transparent; cursor:pointer;
+                 font:400 12px/1 var(--sans); padding:0; color:var(--ink); }
+  .days button.on { background:var(--ink); color:var(--paper); }
+  .days button.today { border-width:3px; }
+  .days button:disabled { border-color:var(--rule); color:var(--faint); cursor:default; }
+  .days .pad { visibility:hidden; }
+
+  /* Photos */
+  .gallery { display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:16px; margin:0 0 12px; padding:0; list-style:none; }
+  .gallery li { display:flex; flex-direction:column; gap:4px; }
+  .gallery .ph { aspect-ratio:758/1024; background:var(--wash); overflow:hidden; border:1px solid var(--rule); }
+  .gallery img { width:100%; height:100%; object-fit:cover; display:block; filter:grayscale(1); }
+  .gallery .cap { font:400 12px/1.4 var(--sans); color:var(--mid); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .drop { border:1px dashed var(--faint); padding:18px; text-align:center; font:400 13px/1.5 var(--sans); color:var(--mid); }
+  .drop.over { border-color:var(--ink); color:var(--ink); }
+
+  /* Today's headlines, with links */
+  .briefs { columns:2 240px; column-gap:28px; column-rule:1px solid var(--rule); }
+  .brief { break-inside:avoid; margin:0 0 16px; }
+  .brief h4 { font:700 11px/1.2 var(--sans); letter-spacing:.1em; text-transform:uppercase; color:var(--ink); margin:0 0 4px; }
+  .brief a, .brief span.t { display:block; text-decoration:none; font:400 18px/1.25 var(--display); color:var(--ink); padding:5px 0; }
   .brief a:hover { text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
-  .brief a small { display:block; font:400 12px/1.4 var(--sans); color:var(--mid); margin-top:3px; }
+  .brief small { display:block; font:400 12px/1.4 var(--sans); color:var(--mid); margin-top:2px; }
 
-  /* Sources */
-  .src { padding:10px 0; border-bottom:1px solid var(--rule); }
-  .src:first-of-type { border-top:1px solid var(--ink); }
-  .src .top { display:flex; gap:12px; align-items:flex-end; }
-  .src .top .field:first-child { font-weight:600; color:var(--ink); }
-  .src .max { width:52px; flex:none; text-align:center; }
+  .places { list-style:none; margin:4px 0 0; padding:0; }
+  .places button { width:100%; text-align:left; background:none; border:0; border-bottom:1px solid var(--rule);
+                   padding:7px 0; cursor:pointer; color:var(--ink); }
+  .places button:hover:not(:disabled) { text-decoration:underline; }
+  .places small { font:400 12px/1 var(--sans); color:var(--mid); margin-left:6px; }
 
-  /* Sign-in */
+  /* Sign in */
   .signin { max-width:560px; margin:36px auto 0; }
   .signin ol { padding-left:20px; }
   .signin li { margin-bottom:6px; }
-  .signin .add { margin-top:22px; }
-  .colophon { margin-top:28px; padding-top:12px; border-top:3px double var(--heavy); text-align:center;
-              font:italic 400 14px/1.4 var(--serif); color:var(--mid); }
+  .err { color:var(--danger); font:400 13px/1.45 var(--sans); }
   .foot { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; padding-top:14px;
           font:400 12px/1.4 var(--sans); color:var(--faint); }
+  .colophon { margin-top:28px; padding-top:12px; border-top:3px double var(--heavy); text-align:center;
+              font:italic 400 14px/1.4 var(--serif); color:var(--mid); }
+
+  /* ===================================================== Kindle page drawing
+     Sizes are in the plugin's design px (758 x 1024, Kindle Paperwhite 2);
+     the whole page is then scaled to the screen box above. */
+  .k { width:758px; height:1024px; padding:44px 48px 30px; display:flex; flex-direction:column;
+       background:#f2f2ee; color:#000; font:400 24px/1.25 var(--book); font-optical-sizing:auto;
+       overflow:hidden; -webkit-font-smoothing:antialiased; }
+  .k * { margin:0; }
+  .k .wi, .k .fa { line-height:1; }
+  .k .mid { color:#666; }
+  .k-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .k-title { display:flex; align-items:baseline; gap:12px; min-width:0; }
+  .k-title h2 { font:800 56px/1.1 var(--book); white-space:nowrap; }
+  .k-title span { font-size:26px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .k-btns { display:flex; gap:26px; font-size:30px; padding:14px 0 0; flex:none; }
+  .k-body { flex:1; min-height:0; overflow:hidden; margin-top:26px; }
+  .k.mast .k-body { margin-top:0; }
+  .k-foot { border-top:1px solid #aaa; padding-top:12px; margin-top:12px; display:flex; justify-content:space-between;
+            align-items:center; font-size:20px; color:#666; }
+  .k-dots { display:flex; gap:9px; }
+  .k-dots i { width:14px; height:14px; border-radius:50%; border:2px solid #000; }
+  .k-dots i.on { background:#000; }
+  .k-rule { height:2px; background:#000; }
+  .k-thin { height:1px; background:#aaa; }
+  .k-h { font:700 30px/1.25 var(--book); padding:4px 0 10px; display:flex; align-items:baseline; gap:12px; }
+  .k-h small { font:400 20px/1 var(--book); color:#666; }
+  .k-note { font:italic 400 20px/1.3 var(--book); color:#666; padding-bottom:10px; }
+  .k-ev { display:flex; padding-bottom:12px; }
+  .k-ev .when { width:140px; flex:none; font-size:20px; color:#666; }
+  .k-ev .when b { display:block; font-weight:600; font-size:21px; color:#000; }
+  .k-ev .what { min-width:0; flex:1; }
+  .k-ev .what div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .k-ev .what .loc { font-size:20px; color:#666; }
+  .k-ev .loc .fa { font-size:16px; margin-right:8px; }
+  .k-ev.dl .what > div:first-child { font-weight:700; }
+  .k-todo { display:flex; align-items:flex-start; padding-bottom:10px; font-size:26px; }
+  .k-todo .fa { width:42px; flex:none; font-size:30px; padding-top:2px; }
+  .k-todo.done { color:#666; text-decoration:line-through; text-decoration-thickness:1.5px; }
+  .k-todo.done span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 </style>
 </head>
 <body>
 <div class="sheet">
   <header>
-    <div class="ears"><span id="ear-right">Private. Reads from your repo only.</span></div>
+    <div class="ears"><span id="repo-label"></span><span>Private. Reads from your repo only.</span></div>
     <h1 class="flag">The Kindle Dashboard</h1>
-    <div class="dateline"><span id="today"></span><span class="status" id="status" role="status" aria-live="polite"></span></div>
-    <nav class="sections" id="nav" hidden>
-      <a href="#front">Front page</a><a href="#todos">To-dos</a><a href="#counts">Countdowns</a>
-      <a href="#dots">The long count</a><a href="#order">Running order</a><a href="#reading">Reading room</a><a href="#sources">Sources</a>
-    </nav>
+    <div class="dateline">
+      <span id="today"></span>
+      <span class="right">
+        <span class="state" id="state" role="status" aria-live="polite"><span class="pulse"></span><span id="state-text"></span></span>
+        <button class="btn" id="refresh" type="button" hidden>Refresh now</button>
+      </span>
+    </div>
   </header>
 
   <!-- Sign in -->
-  <main id="signin" class="signin" hidden>
+  <main class="signin" id="signin" hidden>
     <p class="kicker">Before you begin</p>
-    <h2>Sign in with a GitHub token</h2>
-    <p class="dek">This page has no data of its own. It reads and edits <b id="repo-name">your data repo</b> directly, and keeps the token in this browser only.</p>
+    <h2 class="flag" style="font:400 34px/1.12 var(--display);text-align:left;margin:0 0 6px">Sign in with a GitHub token</h2>
+    <p style="font-style:italic;color:var(--mid)">This page has no data of its own. It reads and edits <b id="repo-name">your data repo</b> directly, and keeps the token in this browser only.</p>
     <ol>
       <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>.</li>
       <li>Repository access: only this repo.</li>
       <li>Permissions: <b>Contents</b> and <b>Actions</b>, both <b>Read and write</b>. The Kindle can use the same token.</li>
-      <li>Generate, copy, and paste it below.</li>
+      <li>Generate it, copy it and paste it below.</li>
     </ol>
-    <form class="add" id="signin-form">
-      <input class="field small" id="repo" autocomplete="off" spellcheck="false" placeholder="owner/repo" aria-label="Data repo, owner/name" hidden>
-      <input class="field small" id="token" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub token" required>
-      <button class="link" type="submit">Sign in</button>
+    <form class="add" id="signin-form" style="margin-top:22px">
+      <input class="in small" id="repo" autocomplete="off" spellcheck="false" placeholder="owner/repo" aria-label="Data repo, owner/name" hidden>
+      <input class="in small" id="token" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub token" required>
+      <button class="btn" type="submit">Sign in</button>
     </form>
-    <p class="note" id="signin-error"></p>
+    <p class="err" id="signin-error"></p>
   </main>
 
-  <!-- The paper -->
-  <main id="paper" hidden>
-    <div class="row lead" id="front">
-      <section>
-        <p class="kicker">On the Kindle now</p>
-        <h2 id="lead-head">The front page</h2>
-        <p class="dek" id="lead-dek">A summary of today's data. The Kindle draws the full pages from it.</p>
-        <figure class="figure">
-          <div class="frame" id="frame"><div class="empty">Loading…</div></div>
-          <figcaption>
-            <span id="caption"></span>
-            <span class="nav"><button class="link" id="refresh" type="button">Refresh now</button></span>
-          </figcaption>
-          <p class="credit" id="credit"></p>
-        </figure>
-      </section>
-      <section id="todos">
-        <p class="kicker">To-dos</p>
-        <h2>The list</h2>
-        <p class="dek" id="todo-dek"></p>
-        <form class="add" id="todo-form" style="margin:0 0 16px">
-          <input class="field" id="todo-new" placeholder="Add a to-do" aria-label="New to-do">
-          <button class="link" type="submit">Add</button>
-        </form>
-        <ul class="todos" id="todo-list"></ul>
-      </section>
-    </div>
+  <!-- The paper: sections, the Kindle, the editor -->
+  <main class="app" id="app" hidden>
+    <nav class="pages" aria-label="Pages">
+      <h2>Pages on the Kindle</h2>
+      <ol class="plist main" id="plist"></ol>
+      <p class="hint">Tick a page to show it on the Kindle. Drag the dots to change the order.</p>
+      <ul class="plist" id="xlist"></ul>
+    </nav>
 
-    <div class="row three">
-      <section id="counts">
-        <p class="kicker">Countdowns</p>
-        <h2>Days until</h2>
-        <p class="dek">Calendar deadlines in the next 60 days are added on the Kindle automatically.</p>
-        <ul class="counts" id="count-list"></ul>
-        <form id="count-form">
-          <div class="grid2">
-            <div><label class="cap" for="count-name">Name</label><input class="field" id="count-name" required></div>
-            <div><label class="cap" for="count-date">Date</label><input class="field small" id="count-date" type="date" required></div>
+    <section class="device" aria-label="Kindle preview">
+      <p class="kicker">Preview</p>
+      <figure style="margin:0">
+        <div class="frame">
+          <div class="bezel">
+            <div class="screen" id="screen" tabindex="0" aria-label="Kindle screen. Use the left and right arrow keys to change page."><div class="flash" id="flash"></div></div>
           </div>
-          <div class="add" style="justify-content:flex-end"><button class="link" type="submit">Add countdown</button></div>
-        </form>
-      </section>
-      <section id="dots">
-        <p class="kicker">The long count</p>
-        <h2 id="dots-head">Days left</h2>
-        <div class="tally"><b id="dots-left">0</b><span id="dots-sub"></span></div>
-        <div class="minidots" id="minidots" aria-hidden="true"></div>
-        <label class="cap" for="dots-name">Label, after "days left"</label><input class="field" id="dots-name">
-        <div class="grid2">
-          <div><label class="cap" for="dots-start">From</label><input class="field small" id="dots-start" type="date"></div>
-          <div><label class="cap" for="dots-end">Until</label><input class="field small" id="dots-end" type="date"></div>
         </div>
-      </section>
-      <section id="order">
-        <p class="kicker">Running order</p>
-        <h2>Pages on the Kindle</h2>
-        <p class="dek">Drag pages into the order you want, or leave them out.</p>
-        <ol class="order" id="order-list"></ol>
-      </section>
-    </div>
+        <figcaption>
+          <button class="round" id="prev" type="button" aria-label="Previous page">‹</button>
+          <span id="where"></span>
+          <button class="round" id="next" type="button" aria-label="Next page">›</button>
+        </figcaption>
+      </figure>
+    </section>
 
-    <div class="row two">
-      <section id="reading">
-        <p class="kicker">Reading room</p>
-        <h2>Today's headlines and papers</h2>
-        <p class="dek">The same items as the Kindle's reading page, with links.</p>
-        <div class="briefs" id="briefs"></div>
-      </section>
-      <section id="sources">
-        <p class="kicker">Sources</p>
-        <h2>Feeds and searches</h2>
-        <p class="dek">Numbers are how many items each one shows.</p>
-        <p class="kicker" style="margin-top:18px">News feeds</p>
-        <div id="feed-list"></div>
-        <div class="add"><button class="link" type="button" id="feed-add">Add a feed</button></div>
-        <p class="kicker" style="margin-top:26px">arXiv searches</p>
-        <div id="arxiv-list"></div>
-        <div class="add"><button class="link" type="button" id="arxiv-add">Add a search</button></div>
-        <p class="note" style="margin-top:14px">Search syntax: <a href="https://info.arxiv.org/help/api/user-manual.html#query_details" target="_blank" rel="noopener">arXiv API guide</a>.</p>
-      </section>
-    </div>
-
-    <div class="foot">
-      <span>Each change is saved to the repo, which rebuilds data.json in about 20 seconds. The Kindle picks it up at its next refresh.</span>
-      <button class="link quiet" id="signout" type="button">Sign out</button>
-    </div>
+    <section class="editor" id="editor"></section>
   </main>
+  <div class="foot" id="foot" hidden>
+    <span>Each change is saved to the repo, which rebuilds the Kindle's data in about 20 seconds. The Kindle picks it up at its next refresh.</span>
+  </div>
   <p class="colophon"><a href="https://github.com/hadihassan04/kdash-koreader" target="_blank" rel="noopener">kdash for KOReader</a></p>
 </div>
 
 <script>
 "use strict";
-// Served from https://<owner>.github.io/<repo>/, so the repo comes from the
-// address. Opened any other way (a local file), it asks for owner/name too.
-const FROM_URL = location.hostname.endsWith(".github.io") && location.pathname.split("/")[1]
+// ======================================================================= setup
+// The repo this page belongs to. A data repo's Pages workflow writes it in at
+// deploy time, so only the token is asked for. The plugin repo's copy is
+// written "-": it belongs to no data repo, so it asks for one (remembered).
+// Otherwise a github.io address gives it; a local file asks for it too.
+const BAKED = "__KDASH_REPO__";
+const FROM_URL = BAKED === "-" ? ""
+  : /^[\w.-]+\/[\w.-]+$/.test(BAKED) ? BAKED
+  : location.hostname.endsWith(".github.io") && location.pathname.split("/")[1]
   ? location.hostname.split(".")[0] + "/" + location.pathname.split("/")[1] : "";
 let REPO = "", API = "";
 function setRepo(r) { REPO = r; API = "https://api.github.com/repos/" + r; }
-const PAGE_INFO = {
-  today: ["Today", "Date, weather, next events, top to-dos"],
-  agenda: ["This week", "Seven days of calendar"],
-  weather: ["Weather", "Seven-day forecast"],
-  todos: ["To-dos", "The full checklist"],
-  countdowns: ["Countdowns", "Days until each date"],
-  dots: ["The long count", "One dot per day"],
-  reading: ["Reading", "Headlines and new papers"],
-  habits: ["Habits", "This month's grid"],
-  quote: ["Quote and word", "One of each per day"],
-  photo: ["Photo", "One photo per day"],
-};
-const $ = (id) => document.getElementById(id);
-const el = (tag, props = {}, ...kids) => {
-  const n = Object.assign(document.createElement(tag), props);
-  for (const k of kids) n.append(k);
-  return n;
-};
 
-// ---------------------------------------------------------------- storage
+// Every page the plugin draws: what it shows, and what it needs to be shown.
+const PAGES = {
+  today:      { title: "Today", about: "The date, the weather now and in the next hours, your next three events and your open to-dos." },
+  agenda:     { title: "Agenda", about: "Your calendar, a day at a time. Tap an event on the Kindle for its time and place.",
+                needs: "Add your calendar's iCal link as the ICS_URLS secret (see below)." },
+  weather:    { title: "Weather", about: "Now, and seven days ahead. Tap a day on the Kindle for sunrise, sunset and wind.",
+                needs: "Choose a location below." },
+  todos:      { title: "To-do", about: "Tick, add and delete on the Kindle or here; both save to data/todos.md." },
+  countdowns: { title: "Countdowns", about: "Days until each date. Deadlines from your calendar are added by themselves.",
+                needs: "Add a countdown, or a calendar." },
+  dots:       { title: "Days left", about: "One dot per day between two dates: the ones gone are filled in.",
+                needs: "Set an end date below." },
+  reading:    { title: "Reading", about: "Headlines and new papers. Tap one on the Kindle for a QR code of its link.",
+                needs: "Add a news feed or an arXiv search below." },
+  habits:     { title: "Habits", about: "A month of squares per habit. Tap a habit on the Kindle to tick today; tick any day here.",
+                needs: "Add a habit below." },
+  quote:      { title: "Quote", about: "A quote and a word of the day, taken in turn from your lists.",
+                needs: "Add a quote or a word below." },
+  photo:      { title: "Photo", about: "One of your photos a day, full screen in 16 greys. Pairs well with “Leave screen as-is” as the sleep screen.",
+                needs: "Upload a photo below." },
+};
+const SETUP = "setup";
+
+const $ = (id) => document.getElementById(id);
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (k in n && typeof v !== "string") n[k] = v;
+    else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) n.append(c);
+  return n;
+}
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
@@ -364,17 +402,47 @@ setRepo(FROM_URL || store.get("kdash-repo") || "");
 const tokenKey = () => "kdash-token:" + REPO;
 let token = REPO ? store.get(tokenKey()) : null;
 
-// ------------------------------------------------------------------ status
-let statusTimer;
-function status(text, isError) {
-  const s = $("status");
-  s.textContent = text;
-  s.classList.toggle("err", !!isError);
-  clearTimeout(statusTimer);
-  if (!isError && text) statusTimer = setTimeout(() => { s.textContent = ""; }, 6000);
+// ====================================================================== dates
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+                "September", "October", "November", "December"];
+function localISO() {
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
 }
+// Dates are read from their text, never through the browser's time zone
+function pd(iso) {
+  if (!iso) return null;
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const wday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return { y, m, d, wday, hm: iso.length > 11 ? iso.slice(11, 16) : "" };
+}
+const dayNum = (iso) => { const p = pd(iso); return Date.UTC(p.y, p.m - 1, p.d) / 86400000; };
+const between = (a, b) => dayNum(b) - dayNum(a);
+const ordinal = (iso) => dayNum(iso) + 719163;              // Python's date.toordinal()
+const addDays = (iso, n) => new Date((dayNum(iso) + n) * 86400000).toISOString().slice(0, 10);
+const longDate = (iso) => { const p = pd(iso); return `${DAYS[p.wday]} ${p.d} ${MONTHS[p.m - 1]}`; };
+const shortDate = (iso) => { const p = pd(iso); return `${DAYS[p.wday].slice(0, 3)} ${p.d} ${MONTHS[p.m - 1].slice(0, 3)}`; };
+function dayLabel(iso, today) {
+  const d = iso.slice(0, 10);
+  if (d === today) return "Today";
+  if (d === addDays(today, 1)) return "Tomorrow";
+  return shortDate(d);
+}
+const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
+const today = () => (data && data.today) || localISO();
 
-// --------------------------------------------------------------------- API
+// ======================================================================= state
+let data = null;              // out/data.json, as last built
+let config = {};              // config.yaml (read only: settings.json wins)
+let settings = null;          // data/settings.json
+let todoModel = null, habitModel = null, quoteModel = null, wordModel = null;
+let photos = [];              // [{name, sha, url}]
+let photoPng = null;          // object URL of out/photo.png
+let current = "today";        // page shown in the editor and on the Kindle
+const eff = (k) => (settings && k in settings ? settings[k] : config[k]);
+
+// ========================================================================= API
 async function gh(path, opts = {}) {
   const r = await fetch(API + path, {
     ...opts,
@@ -390,388 +458,1125 @@ async function gh(path, opts = {}) {
 }
 const b64enc = (s) => { let b = ""; for (const c of new TextEncoder().encode(s)) b += String.fromCharCode(c); return btoa(b); };
 const b64dec = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, "")), (c) => c.charCodeAt(0)));
+const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
 async function readFile(path, ref = "main") {
-  const j = await (await gh(`/contents/${path}?ref=${ref}`)).json();
-  return { sha: j.sha, text: b64dec(j.content) };
+  try {
+    const j = await (await gh(`/contents/${enc(path)}?ref=${ref}`)).json();
+    return { sha: j.sha, text: b64dec(j.content) };
+  } catch (e) {
+    if (e.status === 404) return { sha: null, text: "" };     // not made yet: saving creates it
+    throw e;
+  }
 }
-async function readOut(path, as) {        // rendered output lives on the "out" branch
-  const r = await gh(`/contents/${path}?ref=out`, { headers: { Accept: "application/vnd.github.raw+json" } });
-  return as === "blob" ? r.blob() : as === "json" ? r.json() : r.text();
-}
+const readRaw = (path, ref) => gh(`/contents/${enc(path)}?ref=${ref}`, { headers: { Accept: "application/vnd.github.raw+json" } });
 
-// One save queue per file, so quick edits collapse into one commit.
-const files = {};   // path -> { sha, timer, busy, again, build, message }
-function register(path, sha, build, message) { files[path] = { sha, build, message }; }
+// Commits go one at a time: two at once can race for the branch head.
+let queue = Promise.resolve();
+function commit(fn) { const p = queue.then(fn); queue = p.catch(() => {}); return p; }
+
+// Text files: quick edits collapse into one commit per file.
+const files = {};   // path -> { sha, build, message, reload, timer }
+function register(path, sha, build, message, reload) { files[path] = { sha, build, message, reload }; }
 function save(path) {
   const f = files[path];
   clearTimeout(f.timer);
-  status("Saving…");
-  f.timer = setTimeout(() => flush(path), 900);
+  say("Saving…", "busy");
+  f.timer = setTimeout(() => commit(() => put(path)), 800);
+  draw();                                        // previews follow edits at once
 }
-async function flush(path) {
+async function put(path) {
   const f = files[path];
-  if (f.busy) { f.again = true; return; }
-  f.busy = true;
   try {
-    const body = { message: f.message, content: b64enc(f.build()), sha: f.sha, branch: "main" };
-    const j = await (await gh(`/contents/${path}`, { method: "PUT", body: JSON.stringify(body) })).json();
+    const body = { message: f.message, content: b64enc(f.build()), branch: "main" };
+    if (f.sha) body.sha = f.sha;
+    const j = await (await gh(`/contents/${enc(path)}`, { method: "PUT", body: JSON.stringify(body) })).json();
     f.sha = j.content.sha;
-    status("Saved. data.json rebuilds in about 20 seconds.");
+    rebuilt();
   } catch (e) {
-    if (e.status === 409 || e.status === 422) status("This file changed elsewhere. Reload the page, then make the change again.", true);
-    else if (e.status === 401 || e.status === 403) status("The token can't write to the repo. It needs Contents: Read and write.", true);
-    else status("Couldn't save: " + e.message, true);
-  } finally {
-    f.busy = false;
-    if (f.again) { f.again = false; flush(path); }
+    if (e.status === 409 || e.status === 422) {
+      // Changed elsewhere (usually a tap on the Kindle): take that version
+      const fresh = await readFile(path).catch(() => null);
+      if (fresh) { f.sha = fresh.sha; f.reload(fresh.text); draw(); }
+      say(`${path} changed on the Kindle or in GitHub. This page now shows that version; make your change again.`, "err");
+    } else if (e.status === 401 || e.status === 403) say("The token can't write to the repo. It needs Contents: Read and write.", "err");
+    else say("Couldn't save " + path + ": " + e.message, "err");
   }
 }
 
-// ----------------------------------------------------------------- state
-let settings = null;             // data/settings.json
-let todoLines = [];              // non-item lines of todos.md, kept as they are
-let todos = [];                  // [{text, done}]
-
-const todayISO = () => {
-  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 10);
-};
-const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-const longDate = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("en-GB",
-  { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-
-// ----------------------------------------------------------------- to-dos
-function parseTodos(text) {
-  todoLines = []; todos = [];
-  for (const line of text.split("\n")) {
-    const m = line.match(/^\s*[-*]\s*\[([ xX])\]\s*(.+)$/);
-    if (m) todos.push({ text: m[2].trim(), done: m[1] !== " " });
-    else if (line.trim()) todoLines.push(line);
-  }
+// ===================================================================== status
+let sayTimer;
+function say(text, kind) {
+  $("state-text").textContent = text;
+  $("state").className = "state" + (kind ? " " + kind : "");
+  clearTimeout(sayTimer);
+  if (!kind && text) sayTimer = setTimeout(() => say(updatedText()), 8000);
 }
-const buildTodos = () => todoLines.concat(todos.map((t) => `- [${t.done ? "x" : " "}] ${t.text}`)).join("\n") + "\n";
-
-function drawTodos() {
-  const list = $("todo-list"); list.replaceChildren();
-  const open = todos.filter((t) => !t.done).length;
-  $("todo-dek").textContent = open === 0 ? "Nothing open." : `${open} open. The Kindle's today page shows the first three.`;
-  const ordered = todos.filter((t) => !t.done).concat(todos.filter((t) => t.done));
-  for (const t of ordered) {
-    const box = el("button", { className: "box", type: "button", title: t.done ? "Mark as open" : "Mark as done" });
-    box.setAttribute("role", "checkbox"); box.setAttribute("aria-checked", t.done);
-    box.setAttribute("aria-label", t.text);
-    box.onclick = () => { t.done = !t.done; drawTodos(); save("data/todos.md"); };
-    const del = el("button", { className: "link quiet", type: "button", textContent: "Remove" });
-    del.onclick = () => { todos.splice(todos.indexOf(t), 1); drawTodos(); save("data/todos.md"); };
-    list.append(el("li", { className: t.done ? "done" : "" }, box, el("span", { className: "text", textContent: t.text }), del));
-  }
+function updatedText() {
+  if (!data || !data.updated) return "Not built yet";
+  const day = data.updated.slice(0, 10) === localISO() ? "today" : shortDate(data.updated);
+  return `Kindle data from ${day}, ${pd(data.updated).hm}`;
 }
-$("todo-form").onsubmit = (e) => {
-  e.preventDefault();
-  const v = $("todo-new").value.trim();
-  if (!v) return;
-  let lastOpen = -1;                     // new items go after the last open one
-  todos.forEach((t, i) => { if (!t.done) lastOpen = i; });
-  todos.splice(lastOpen + 1, 0, { text: v, done: false });
-  $("todo-new").value = "";
-  drawTodos(); save("data/todos.md");
-};
 
-// ------------------------------------------------------------- countdowns
-function drawCounts() {
-  const list = $("count-list"); list.replaceChildren();
-  const today = todayISO();
-  const items = (settings.countdowns || []).slice().sort((a, b) => a.date.localeCompare(b.date));
-  if (!items.length) list.append(el("li", {}, el("span"), el("span", { className: "note", textContent: "No countdowns yet." }), el("span")));
-  for (const c of items) {
-    const n = daysBetween(today, c.date);
-    const del = el("button", { className: "link quiet", type: "button", textContent: "Remove" });
-    del.onclick = () => { settings.countdowns.splice(settings.countdowns.indexOf(c), 1); drawCounts(); save("data/settings.json"); };
-    list.append(el("li", {},
-      el("span", { className: "n", textContent: n < 0 ? "—" : n }),
-      el("span", { className: "what", textContent: c.name },
-         el("span", { className: "when", textContent: n < 0 ? "Passed, " + longDate(c.date) : longDate(c.date) })),
-      del));
-  }
+// After a commit or a refresh, wait for the render workflow to replace the
+// "out" branch, then load the new data. A failed run is reported with its link.
+let watching = null;
+const outSha = async () => (await (await gh("/commits/out", { headers: { Accept: "application/vnd.github.sha" } })).text()).trim();
+function rebuilt() {
+  if (watching) { watching.extend = true; return; }
+  watching = { extend: false };
+  const w = watching;
+  (async () => {
+    const before = await outSha().catch(() => "");
+    const started = Date.now();
+    say("Saved. Rebuilding the Kindle pages…", "busy");
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      if ((await outSha().catch(() => before)) !== before) {
+        // Another change may have started a newer run: keep waiting for that one
+        if (w.extend) { w.extend = false; continue; }
+        await loadOut();
+        watching = null;
+        say("Kindle pages rebuilt. The Kindle shows them at its next refresh.");
+        return;
+      }
+      const run = await lastRun().catch(() => null);
+      if (run && run.status === "completed" && run.conclusion !== "success" &&
+          Date.parse(run.created_at) > started - 10000) {
+        watching = null;
+        say("", "err");
+        $("state-text").replaceChildren("The rebuild failed. ",
+          el("a", { href: run.html_url, target: "_blank", rel: "noopener", text: "See what went wrong" }));
+        return;
+      }
+    }
+    watching = null;
+    say("The rebuild is taking long. Check the repo's Actions tab.", "err");
+  })();
 }
-$("count-form").onsubmit = (e) => {
-  e.preventDefault();
-  const name = $("count-name").value.trim(), date = $("count-date").value;
-  if (!name || !date) return;
-  (settings.countdowns = settings.countdowns || []).push({ name, date });
-  $("count-name").value = ""; $("count-date").value = "";
-  drawCounts(); save("data/settings.json");
+async function lastRun() {
+  const j = await (await gh("/actions/workflows/render.yml/runs?per_page=1&branch=main")).json();
+  return j.workflow_runs && j.workflow_runs[0];
+}
+$("refresh").onclick = async () => {
+  const b = $("refresh"); b.disabled = true;
+  try {
+    await gh("/actions/workflows/render.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main" }) });
+    rebuilt();
+  } catch (e) {
+    say(e.status === 403 || e.status === 404 ? "The token can't start the build. It needs Actions: Read and write."
+                                             : "Couldn't start the build: " + e.message, "err");
+  } finally { setTimeout(() => { b.disabled = false; }, 4000); }
 };
 
-// ------------------------------------------------------------------- dots
-function drawDots() {
-  const d = settings.dots || (settings.dots = { name: "", start: todayISO(), end: todayISO() });
-  $("dots-name").value = d.name || ""; $("dots-start").value = d.start || ""; $("dots-end").value = d.end || "";
-  const today = todayISO();
-  const total = Math.max(daysBetween(d.start || today, d.end), 1);
-  const gone = Math.min(Math.max(daysBetween(d.start || today, today), 0), total);
-  const left = Math.max(daysBetween(today, d.end), 0);
-  $("dots-head").textContent = `Days left ${d.name || ""}`.trim();
-  $("dots-left").textContent = left;
-  $("dots-sub").textContent = `${gone} of ${total} days gone, until ${longDate(d.end)}`;
-  const g = $("minidots"); g.replaceChildren();
-  for (let i = 0; i < Math.min(total, 1200); i++) g.append(el("i", { className: i < gone ? "g" : i === gone ? "t" : "" }));
+// ============================================================ the data files
+// to-dos: data/todos.md, lines of "- [ ] text"; other lines kept as they are
+const Todos = {
+  parse(text) {
+    const m = { head: [], items: [] };
+    for (const line of text.split("\n")) {
+      const x = line.match(/^\s*[-*]\s*\[([ xX])\]\s*(.+?)\s*$/);
+      if (x) m.items.push({ text: x[2], done: x[1] !== " " });
+      else if (line.trim()) m.head.push(line);
+    }
+    return m;
+  },
+  build: (m) => m.head.concat(m.items.map((t) => `- [${t.done ? "x" : " "}] ${t.text}`)).join("\n") + "\n",
+  ordered: (m) => m.items.filter((t) => !t.done).concat(m.items.filter((t) => t.done)),
+};
+
+// habits: data/habits.md, "## YYYY-MM" sections of "Name: 1 2 5"
+const Habits = {
+  parse(text) {
+    const m = { head: [], months: [] };
+    let cur = null;
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      const s = line.match(/^##\s*(\d{4})-(\d{2})/);
+      if (s) { cur = { ym: s[1] + "-" + s[2], rows: [] }; m.months.push(cur); }
+      else if (!cur) { if (line || m.head.length) m.head.push(raw); }
+      else if (line.includes(":") && !line.startsWith("#")) {
+        const i = line.indexOf(":");
+        cur.rows.push({ name: line.slice(0, i).trim(), days: new Set((line.slice(i + 1).match(/\d+/g) || []).map(Number)) });
+      } else if (line) cur.rows.push({ raw });
+    }
+    while (m.head.length && !m.head[m.head.length - 1].trim()) m.head.pop();
+    return m;
+  },
+  build(m) {
+    const out = m.head.slice();
+    for (const mo of m.months) {
+      if (out.length) out.push("");
+      out.push("## " + mo.ym);
+      for (const r of mo.rows) out.push(r.raw != null ? r.raw : r.name + ":" + (r.days.size ? " " + [...r.days].sort((a, b) => a - b).join(" ") : ""));
+    }
+    return out.join("\n") + "\n";
+  },
+  // This month's section; a new month starts with the latest habits, unticked
+  month(m, ym, make) {
+    let mo = m.months.find((x) => x.ym === ym);
+    if (!mo && make) {
+      const last = m.months.slice().sort((a, b) => a.ym.localeCompare(b.ym)).pop();
+      mo = { ym, rows: last ? last.rows.filter((r) => r.name).map((r) => ({ name: r.name, days: new Set() })) : [] };
+      m.months.push(mo);
+    }
+    return mo;
+  },
+  // What the generator shows for this month (sources.habits)
+  view(m, iso) {
+    const p = pd(iso), ym = iso.slice(0, 7);
+    const mo = Habits.month(m, ym, false);
+    const last = m.months.slice().sort((a, b) => a.ym.localeCompare(b.ym)).pop();
+    const rows = mo ? mo.rows.filter((r) => r.name) : last ? last.rows.filter((r) => r.name).map((r) => ({ name: r.name, days: new Set() })) : [];
+    const ndays = new Date(Date.UTC(p.y, p.m, 0)).getUTCDate();
+    return { month: MONTHS[p.m - 1], ndays, day: p.d, rows: rows.map((r) => {
+      let d = r.days.has(p.d) ? p.d : p.d - 1, streak = 0;
+      while (d >= 1 && r.days.has(d)) { streak++; d--; }
+      return { name: r.name, days: [...r.days].sort((a, b) => a - b), streak, count: [...r.days].filter((x) => x <= p.d).length };
+    }) };
+  },
+};
+
+// quotes.yaml and words.yaml: a YAML list of flow maps, one per line.
+// Leading comment lines are kept; JSON strings are valid YAML strings.
+function YamlList(keys) {
+  return {
+    parse(text) {
+      const head = [];
+      for (const line of text.split("\n")) { if (line.startsWith("#")) head.push(line); else if (line.trim()) break; }
+      let items = [];
+      try { items = (jsyaml.load(text) || []).filter((x) => x && typeof x === "object"); } catch {}
+      return { head, items: items.map((x) => Object.fromEntries(keys.map((k) => [k, x[k] == null ? "" : String(x[k])]))) };
+    },
+    build: (m) => m.head.concat(m.items.filter((x) => x[keys[0]].trim()).map((x) =>
+      "- {" + keys.filter((k) => x[k].trim()).map((k) => `${k}: ${JSON.stringify(x[k].trim())}`).join(", ") + "}")).join("\n") + "\n",
+  };
 }
-for (const id of ["dots-name", "dots-start", "dots-end"]) {
-  $(id).addEventListener("change", () => {
-    const d = settings.dots;
-    d.name = $("dots-name").value.trim(); d.start = $("dots-start").value; d.end = $("dots-end").value;
-    if (!d.start || !d.end || d.end <= d.start) { status("The end date needs to be after the start date.", true); return; }
-    drawDots(); save("data/settings.json");
-  });
+const Quotes = YamlList(["text", "author"]);
+const Words = YamlList(["word", "kind", "meaning", "example"]);
+const pickIndex = (n) => (n ? ordinal(today()) % n : -1);   // sources._pick
+
+// ============================================================ what's shown
+// A page's data: the last build, with this page's edits laid over it so the
+// preview changes as you type.
+const builtPage = (name) => data && (data.pages || []).find((p) => p.name === name);
+function setUp(name) {
+  const s = settings || {};
+  switch (name) {
+    case "agenda": return !!(builtPage("today") || {}).data?.has_calendar || !!builtPage("agenda");
+    case "weather": { const l = eff("location") || {}; return l.lat != null && l.lon != null; }
+    case "countdowns": return !!(s.countdowns || []).length || !!(builtPage("today") || {}).data?.has_calendar;
+    case "dots": return !!(s.dots && s.dots.end);
+    case "reading": return !!((s.feeds || []).length || (s.arxiv || []).length);
+    case "habits": return Habits.view(habitModel, today()).rows.length > 0;
+    case "quote": return !!(quoteModel.items.length || wordModel.items.length);
+    case "photo": return photos.length > 0;
+    default: return true;
+  }
+}
+const order = () => (settings.pages || []).filter((p) => PAGES[p]);
+const shown = () => order().filter(setUp);        // what the Kindle will have after the next build
+
+function pageData(name) {
+  const built = builtPage(name);
+  const d = structuredClone((built && built.data) || {});
+  const t = today();
+  if (name === "today") d.open_todos = todoModel.items.filter((x) => !x.done);
+  if (name === "todos") d.todos = Todos.ordered(todoModel);
+  if (name === "habits") d.habits = Habits.view(habitModel, t);
+  if (name === "quote") {
+    d.quote = quoteModel.items[pickIndex(quoteModel.items.length)];
+    d.word = wordModel.items[pickIndex(wordModel.items.length)];
+  }
+  if (name === "dots" && settings.dots && settings.dots.end) {
+    const s = settings.dots.start || t, e = settings.dots.end;
+    const total = Math.max(between(s, e), 1);
+    Object.assign(d, { name: settings.dots.name || "", end: e, left: between(t, e), total,
+                       gone: Math.min(Math.max(between(s, t), 0), total) });
+  }
+  if (name === "countdowns") {
+    const own = settings.countdowns || [];
+    const calendar = (d.countdowns || []).filter((c) => c.fromCalendar ?? !bootCountdowns.has(c.name.toLowerCase() + c.date));
+    d.countdowns = own.filter((c) => c.name && c.date).map((c) => ({ name: c.name, date: c.date, days: between(t, c.date) }))
+      .concat(calendar.map((c) => ({ ...c, days: between(t, c.date) })))
+      .filter((c) => c.days >= 0).sort((a, b) => a.days - b.days);
+  }
+  return { built: !!built, data: d };
+}
+let bootCountdowns = new Set();
+
+// ======================================================== drawing the Kindle
+const WI = [["thunder", "wi-thunderstorm"], ["hail", "wi-hail"], ["freezing rain", "wi-rain-mix"], ["snow", "wi-snow"],
+            ["shower", "wi-showers"], ["drizzle", "wi-sprinkle"], ["rain", "wi-rain"], ["fog", "wi-fog"],
+            ["overcast", "wi-cloudy"], ["partly", "wi-day-cloudy"], ["mostly clear", "wi-day-sunny-overcast"], ["clear", "wi-day-sunny"]];
+function wicon(desc, size, extra) {
+  const d = (desc || "").toLowerCase();
+  const c = (WI.find(([k]) => d.includes(k)) || [0, "wi-cloud"])[1];
+  return el("i", { class: "wi " + c, style: `font-size:${size}px;${extra || ""}`, "aria-hidden": "true" });
+}
+const ic = (name, size, extra) => el("i", { class: name.startsWith("wi-") ? "wi " + name : "fa fa-" + name,
+                                            style: `font-size:${size}px;${extra || ""}`, "aria-hidden": "true" });
+const kt = (tag, style, text) => el(tag, { style, text });
+const kRule = (top = 18, bottom = 16) => el("div", { class: "k-rule", style: `margin:${top}px 0 ${bottom}px` });
+const kHead = (s, sub) => el("div", { class: "k-h" }, s, sub && el("small", { text: sub }));
+const kNote = (s) => el("p", { class: "k-note", text: s });
+
+function kEvent(e, t, withDay) {
+  return el("div", { class: "k-ev" + (e.deadline ? " dl" : "") },
+    el("div", { class: "when" }, withDay && el("b", { text: dayLabel(e.start, t) }), e.allday ? "All day" : pd(e.start).hm),
+    el("div", { class: "what" }, el("div", { text: e.title }),
+       e.location && el("div", { class: "loc" }, ic("map-marker", 16), e.location)));
+}
+function kTodo(x, size = 26) {
+  return el("div", { class: "k-todo" + (x.done ? " done" : ""), style: `font-size:${size}px` },
+    ic(x.done ? "check-square" : "square-o", Math.round(size * 1.15), `width:${size * 1.6}px;${x.done ? "color:#666" : ""}`),
+    el("span", { text: x.text }));
 }
 
-// ---------------------------------------------------------- running order
-function drawOrder() {
-  const list = $("order-list"); list.replaceChildren();
-  const on = settings.pages.filter((p) => PAGE_INFO[p]);
-  const off = Object.keys(PAGE_INFO).filter((p) => !on.includes(p));
-  for (const p of on) {
-    const grip = el("button", { className: "grip", type: "button", title: "Drag to reorder" });
-    grip.setAttribute("aria-label", "Reorder " + PAGE_INFO[p][0] + ". Use the up and down arrow keys.");
-    const drop = el("button", { className: "link quiet", type: "button", textContent: "Leave out" });
-    drop.onclick = () => {
-      if (settings.pages.length === 1) { status("The Kindle needs at least one page.", true); return; }
-      settings.pages.splice(settings.pages.indexOf(p), 1); drawOrder(); save("data/settings.json");
-    };
-    const li = el("li", { className: "on" },
-      el("span", { className: "t", textContent: PAGE_INFO[p][0] }, el("small", { textContent: PAGE_INFO[p][1] })),
-      el("span", { className: "ctl" }, grip, drop));
+const Draw = {
+  today: {
+    mast(d, all) {
+      const p = pd(all.today || today());
+      return el("div", { style: "display:flex;align-items:flex-end;gap:26px" },
+        kt("b", "font:800 190px/.78 var(--book)", String(p.d)),
+        el("div", {}, kt("div", "font:600 46px/1.2 var(--book)", DAYS[p.wday]),
+                      kt("div", "font-size:30px;color:#666", `${MONTHS[p.m - 1]} ${p.y}`)));
+    },
+    body(d, all) {
+      const out = [kRule(20, 18)], w = d.weather;
+      if (w && w.days && w.days[0]) {
+        const d0 = w.days[0];
+        const words = (w.desc || "").split(" ");
+        let best = [w.desc || ""], len = 1e9;
+        for (let i = 1; i < words.length; i++) {
+          const a = words.slice(0, i).join(" "), b = words.slice(i).join(" ");
+          if (Math.max(a.length, b.length) < len) { best = [a, b]; len = Math.max(a.length, b.length); }
+        }
+        const fact = (icon, s) => el("div", { style: "display:flex;align-items:center;justify-content:flex-end;gap:6px" }, s, ic(icon, 20, "width:30px;text-align:center"));
+        out.push(el("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:14px" },
+          el("div", { style: "display:flex;align-items:center;gap:18px" },
+            wicon(w.desc, 64, "width:96px;text-align:center"),
+            el("div", { style: "display:flex;align-items:flex-start;gap:14px" },
+              kt("b", "font:800 88px/.8 var(--book)", w.temp + "°"),
+              el("div", { style: "font:600 28px/1.05 var(--book)" }, ...best.map((s) => el("div", { text: s }))))),
+          el("div", { style: "font-size:23px;line-height:1.3" },
+            fact("wi-thermometer", `High ${d0.hi}°, low ${d0.lo}°`),
+            fact("wi-strong-wind", `Feels ${w.feels}°, ${w.wind} km/h`),
+            el("div", { style: "display:flex;align-items:center;justify-content:flex-end;gap:6px" },
+              d0.sunrise, ic("wi-sunrise", 20, "width:30px;text-align:center"), " ", d0.sunset, ic("wi-sunset", 20, "width:30px;text-align:center")))));
+        if ((w.hours || []).length) out.push(el("div", { style: "display:flex" }, (w.hours || []).map((h) =>
+          el("div", { style: "flex:1;text-align:center" }, kt("div", "font-size:22px;color:#666", h.time),
+            kt("div", "font:700 28px/1.2 var(--book)", h.temp + "°"),
+            el("div", { style: "font-size:22px" }, ic("wi-raindrop", 18, "color:#666;margin-right:8px"), h.rain + "%")))));
+        out.push(kRule(16, 14));
+      } else if (d.weather_error) out.push(kNote(d.weather_error));
+      out.push(kHead("Next up"));
+      if (d.events_error) out.push(kNote(d.events_error));
+      if (!d.has_calendar) out.push(kNote("No calendar set."));
+      else if (!(d.upcoming || []).length) out.push(kNote("Nothing coming up."));
+      for (const e of d.upcoming || []) out.push(kEvent(e, all.today, true));
+      if ((d.open_todos || []).length) {
+        out.push(kRule(16, 14), kHead("To-do"));
+        for (const x of d.open_todos) out.push(kTodo(x, 24));
+      }
+      return out;
+    },
+  },
+  agenda: {
+    title: (d) => ["Agenda", (d.agenda || []).length === 1 ? "today" : `next ${(d.agenda || []).length || 7} days`],
+    body(d, all) {
+      const out = [];
+      if (d.events_error) out.push(kNote(d.events_error));
+      (d.agenda || []).forEach((day, i) => {
+        const p = pd(day.date);
+        if (i) out.push(el("div", { class: "k-thin", style: "margin:2px 0 10px" }));
+        out.push(kHead(day.today ? "Today" : DAYS[p.wday], `${p.d} ${MONTHS[p.m - 1]}`));
+        if (!(day.events || []).length) out.push(kNote("Nothing planned."));
+        for (const e of day.events || []) out.push(kEvent(e, all.today, false));
+      });
+      return out;
+    },
+  },
+  weather: {
+    title: (d, all) => ["Weather", all.location],
+    body(d) {
+      const w = d.weather;
+      if (!w) return [kNote(d.weather_error || "No weather.")];
+      const cw = [92, 46, 0, 112, 78, 62, 46]; cw[2] = 662 - cw.reduce((a, b) => a + b, 0);
+      const line = (cells, h, head) => el("div", { style: `display:flex;align-items:center;height:${h}px` },
+        cells.map((c, i) => el("div", { style: `width:${cw[i]}px;flex:none;text-align:${i > 2 ? "right" : "left"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${head ? "font-size:18px;color:#666" : ""}` }, c)));
+      const out = [el("div", { style: "display:flex;align-items:center;margin-bottom:22px" },
+        wicon(w.desc, 70, "width:105px;text-align:center"),
+        kt("b", "font:800 88px/.8 var(--book);margin:0 28px 0 20px", w.temp + "°"),
+        el("div", {}, kt("div", "font:600 28px/1.25 var(--book)", w.desc),
+                      kt("div", "font-size:22px;color:#666", `Feels like ${w.feels}°, UV ${w.uv}`)))];
+      out.push(line(["Day", "", "", "High, low", "Rain", "Wind", "UV"], 30, true), kRule(0, 0));
+      (w.days || []).forEach((day, i) => {
+        out.push(line([kt("b", "font-size:24px", i ? DAYS[pd(day.date).wday].slice(0, 3) : "Today"),
+          wicon(day.desc, 26), kt("span", "font-size:21px", day.desc),
+          el("span", {}, kt("b", "font-size:24px", day.hi + "°"), " ", kt("span", "font-size:22px", day.lo + "°")),
+          kt("span", "font-size:22px", day.rain + "%"), kt("span", "font-size:22px", String(day.wind)),
+          kt("span", "font-size:22px", String(day.uv))], 56), el("div", { class: "k-thin" }));
+      });
+      out.push(kt("p", "font-size:20px;color:#666;padding-top:14px", "Wind in km/h. Tap a day for sunrise and sunset."));
+      return out;
+    },
+  },
+  todos: {
+    title: (d) => ["To-do", (d.todos || []).filter((x) => !x.done).length + " open"],
+    plus: true,
+    body(d) {
+      const t = d.todos || [];
+      if (!t.length) return [kNote("Nothing to do. Tap + to add one.")];
+      return t.map((x) => kTodo(x)).concat(el("p", { class: "k-note", style: "padding-top:10px", text: "Tap to tick. Hold to delete." }));
+    },
+  },
+  countdowns: {
+    title: () => ["Countdowns"],
+    body(d) {
+      const out = [];
+      if (d.events_error) out.push(kNote(d.events_error));
+      if (!(d.countdowns || []).length) out.push(kNote("No countdowns."));
+      (d.countdowns || []).forEach((c, i) => {
+        if (i) out.push(el("div", { class: "k-thin", style: "margin-bottom:16px" }));
+        const p = pd(c.date);
+        out.push(el("div", { style: "display:flex;align-items:center;margin-bottom:16px" },
+          el("div", { style: "width:170px;flex:none" }, c.days === 0 ? kt("b", "font:800 40px/1 var(--book)", "Today")
+            : [kt("b", "display:block;font:800 64px/.8 var(--book)", String(c.days)), kt("div", "font-size:20px;color:#666;margin-top:6px", c.days === 1 ? "day" : "days")]),
+          el("div", { style: "min-width:0" }, kt("div", "font:700 28px/1.25 var(--book)", c.name),
+             kt("div", "font-size:20px;color:#666", `${longDate(c.date)} ${p.y}`))));
+      });
+      return out;
+    },
+  },
+  dots: {
+    mast(d) {
+      const left = Math.max(d.left || 0, 0), e = d.end && pd(d.end);
+      return el("div", { style: "display:flex;align-items:flex-end;gap:22px" },
+        kt("b", "font:800 120px/.78 var(--book)", String(left)),
+        el("div", {}, kt("div", "font:600 34px/1.15 var(--book)", `${left === 1 ? "day" : "days"} left${d.name ? " " + d.name : ""}`),
+           e && kt("div", "font-size:22px;color:#666", `until ${shortDate(d.end)} ${e.y}`)));
+    },
+    body(d) {
+      // The plugin's DotGrid: columns that fill the space evenly; gone filled, today thick
+      const total = Math.max(d.total || 1, 1), gone = d.gone || 0, W = 662, H = 640;
+      const cols = Math.max(1, Math.ceil(Math.sqrt(total * W / H))), rows = Math.ceil(total / cols);
+      const cell = Math.floor(Math.min(W / cols, H / rows)), dot = Math.max(4, Math.floor(cell * 0.62));
+      const c = el("canvas", { width: cols * cell * 2, height: rows * cell * 2, style: `width:${cols * cell}px;height:${rows * cell}px;display:block;margin:0 auto` });
+      const g = c.getContext("2d"); g.scale(2, 2);
+      const r = dot / 2, off = (cell - dot) / 2;
+      for (let i = 0; i < total; i++) {
+        const x = (i % cols) * cell + off + r, y = Math.floor(i / cols) * cell + off + r;
+        g.beginPath();
+        if (i < gone) { g.arc(x, y, r, 0, 7); g.fill(); }
+        else { const ring = i === gone ? Math.max(2, Math.floor(r / 2)) : 1.5; g.lineWidth = ring; g.arc(x, y, r - ring / 2, 0, 7); g.stroke(); }
+      }
+      return [kRule(22, 26), c, kt("p", "font-size:22px;color:#666;padding-top:20px", `${gone} of ${total} days gone`)];
+    },
+  },
+  reading: {
+    title: () => ["Reading"],
+    body(d) {
+      const out = [];
+      if (d.reading_error) out.push(kNote(d.reading_error));
+      (d.sections || []).forEach((s, i) => {
+        out.push(el("div", { style: i ? "margin-top:10px" : "" }, kHead(s.name)), kRule(0, 10));
+        for (const e of s.entries || []) out.push(el("div", { style: "display:flex;margin-bottom:12px" },
+          el("div", { style: "flex:1;min-width:0" }, kt("div", "font-size:23px;line-height:1.3", e.title),
+             e.meta && kt("div", "font-size:18px;color:#666", e.meta)),
+          el("div", { style: "width:40px;text-align:right;color:#666" }, e.link && ic("qrcode", 20))));
+      });
+      return out;
+    },
+  },
+  habits: {
+    title: (d) => ["Habits", d.habits && d.habits.month],
+    body(d) {
+      const h = d.habits, out = [];
+      if (d.habits_error) out.push(kNote(d.habits_error));
+      if (!h) return out;
+      if (!h.rows.length) out.push(kNote("No habits yet. Add them to data/habits.md."));
+      const cellW = (662 + 2) / h.ndays, sq = Math.floor(cellW - 2), hh = Math.floor(sq * 1.25);
+      h.rows.forEach((r, i) => {
+        const on = new Set(r.days);
+        const grid = el("div", { style: `position:relative;height:${hh}px;margin-top:8px` });
+        for (let day = 1; day <= h.ndays; day++) {
+          const s = on.has(day) ? "background:#000" : day > h.day ? "border:1px solid #aaa"
+            : `border:${day === h.day ? 3 : 1.5}px solid #000`;
+          grid.append(el("i", { style: `position:absolute;box-sizing:border-box;left:${Math.floor((day - 1) * cellW)}px;top:0;width:${sq}px;height:${hh}px;${s}` }));
+        }
+        const nums = i === 0 && el("div", { style: "position:relative;height:18px;margin-top:4px" },
+          Array.from({ length: h.ndays }, (_, k) => k + 1).filter((n) => n === 1 || n % 5 === 0).map((n) =>
+            kt("span", `position:absolute;left:${(n - 1) * cellW + cellW / 2}px;transform:translateX(-50%);font-size:14px;line-height:1;color:#666`, String(n))));
+        out.push(el("div", { style: "margin-bottom:30px" },
+          el("div", { style: "display:flex;justify-content:space-between;align-items:center;gap:16px" },
+            kt("b", "font-size:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", r.name),
+            el("span", { style: "font-size:20px;white-space:nowrap;display:flex;align-items:center" },
+              r.streak > 1 && [ic("fire", 18, "margin-right:5px"), `${r.streak} in a row · `],
+              kt("span", "color:#666", `${r.count} of ${h.day} days`))),
+          grid, nums));
+      });
+      if (h.rows.length) out.push(kNote("Tap a habit to tick or untick today."));
+      return out;
+    },
+  },
+  quote: {
+    title: () => ["Quote"],
+    body(d) {
+      const q = d.quote, w = d.word, out = [];
+      if (q) out.push(ic("quote-left", 40, "color:#666;display:block;padding:24px 0 18px"),
+        kt("p", "font:italic 400 40px/1.35 var(--book)", q.text), kt("p", "font-size:24px;color:#666;padding-top:28px", "— " + (q.author || "")));
+      if (w) out.push(kRule(70, 44), kt("p", "font-size:20px;color:#666;margin-bottom:12px", "Word of the day"),
+        el("p", { style: "display:flex;align-items:baseline;gap:14px;margin-bottom:22px" }, kt("b", "font:800 48px/1.1 var(--book)", w.word),
+          kt("i", "font-size:24px;color:#666", w.kind || "")),
+        kt("p", "font-size:26px;line-height:1.35;margin-bottom:18px", w.meaning), kt("p", "font:italic 400 24px/1.35 var(--book);color:#666", w.example));
+      if (!q && !w) out.push(kNote("No quote or word yet."));
+      return out;
+    },
+  },
+};
+
+// One Kindle screen for page `name`, numbered among the pages shown
+function drawKindle(name) {
+  const on = shown(), idx = on.indexOf(name);
+  const k = el("div", { class: "k" });
+  if (name === "photo" && setUp("photo") && on.includes("photo")) {
+    k.style.padding = "0";
+    const src = photoPng || (photos[pickIndex(photos.length)] || {}).url;
+    k.append(src ? el("img", { src, alt: "", style: "width:758px;height:1024px;object-fit:cover;filter:grayscale(1)" })
+                 : el("div", { style: "margin:auto;color:#666;font-size:24px", text: "Loading the photo…" }));
+    return k;
+  }
+  const def = Draw[name] || {};
+  const { built, data: d } = pageData(name);
+  const all = data || { today: today(), location: (eff("location") || {}).name };
+  const ready = setUp(name) && on.includes(name);
+  const live = built || ["todos", "habits", "quote", "dots", "countdowns"].includes(name);
+  if (def.mast && ready && live) k.classList.add("mast");
+  let left;
+  if (def.mast && ready && live) left = def.mast(d, all);
+  else {
+    const [t, sub] = def.title && ready && live ? def.title(d, all) : [PAGES[name].title];
+    left = el("div", { class: "k-title" }, el("h2", { text: t }), sub && el("span", { text: sub }));
+  }
+  k.append(el("div", { class: "k-head" }, left,
+    el("div", { class: "k-btns" }, def.plus && ready && ic("plus", 30), ic("refresh", 30), ic("times", 30))));
+  let body;
+  if (!on.includes(name) && order().includes(name)) body = [kNote("Not on the Kindle yet: this page has nothing to show. " + (PAGES[name].needs || ""))];
+  else if (!order().includes(name)) body = [kNote("Hidden: the Kindle skips this page. Tick it in the list of pages to show it.")];
+  else if (!live) body = [kNote("This page appears on the Kindle after the next build, in about 20 seconds.")];
+  else body = def.body(d, all);
+  k.append(el("div", { class: "k-body" }, body));
+  k.append(el("div", { class: "k-foot" },
+    el("span", { text: data && data.updated ? "Updated " + pd(data.updated).hm : "Not updated yet" }),
+    el("div", { class: "k-dots" }, on.map((p, i) => el("i", { class: i === idx ? "on" : "" })))));
+  return k;
+}
+
+// =============================================================== the screen
+// Setup isn't a Kindle page: the screen keeps the page shown before it
+let lastShown = null;
+const onScreen = () => (current === SETUP ? lastShown || shown()[0] || "today" : current);
+function drawScreen() {
+  const s = $("screen"), name = onScreen();
+  const k = drawKindle(name);
+  s.querySelector(".k")?.remove();
+  s.prepend(k);
+  fit();
+  if (lastShown && lastShown !== name) { const f = $("flash"); f.classList.remove("go"); void f.offsetWidth; f.classList.add("go"); }
+  lastShown = name;
+  const on = shown(), i = on.indexOf(name);
+  $("where").textContent = i >= 0 ? `Page ${i + 1} of ${on.length} on the Kindle` : "Not on the Kindle";
+}
+function fit() { $("screen").style.setProperty("--k", $("screen").clientWidth / 758); }
+new ResizeObserver(fit).observe($("screen"));
+function step(dir) {
+  const on = shown();
+  let i = on.indexOf(onScreen());
+  if (i < 0) i = dir > 0 ? -1 : on.length;
+  const n = on[(i + dir + on.length) % on.length];
+  if (n) go(n);
+}
+$("prev").onclick = () => step(-1);
+$("next").onclick = () => step(1);
+$("screen").addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+  if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+});
+// Swipe like on the Kindle: left for the next page
+$("screen").addEventListener("pointerdown", (e) => {
+  const x0 = e.clientX, y0 = e.clientY;
+  const up = (u) => {
+    removeEventListener("pointerup", up);
+    const dx = u.clientX - x0;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(u.clientY - y0)) step(dx < 0 ? 1 : -1);
+  };
+  addEventListener("pointerup", up);
+});
+
+// =========================================================== the page list
+// Every page, the shown ones first in their order. Tick to show, drag to reorder.
+function togglePage(name) {
+  if (order().includes(name)) {
+    if (order().length === 1) { say("The Kindle needs at least one page.", "err"); return; }
+    settings.pages.splice(settings.pages.indexOf(name), 1);
+  } else settings.pages.push(name);
+  saveSettings(); refreshEditor();
+}
+function drawList() {
+  const on = order(), off = Object.keys(PAGES).filter((p) => !on.includes(p));
+  let n = 0;
+  const item = (p) => {
+    const shownNow = on.includes(p), ready = shownNow && setUp(p);
+    const li = el("li", { class: (p === current ? "cur" : "") + (ready || p === SETUP ? "" : " off") });
     li.dataset.page = p;
-    grip.onkeydown = (e) => {                   // keyboard: arrows move the page
-      const dir = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
-      if (!dir) return;
-      e.preventDefault();
-      const i = settings.pages.indexOf(p), j = i + dir;
-      if (j < 0 || j >= settings.pages.length) return;
-      [settings.pages[i], settings.pages[j]] = [settings.pages[j], settings.pages[i]];
-      drawOrder(); save("data/settings.json");
-      list.querySelector(`li[data-page="${p}"] .grip`).focus();
-    };
-    // Touch drags start on the grip (so the page still scrolls); a mouse can grab the whole row.
-    li.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
-      if (e.target.closest(".link")) return;
-      if (e.pointerType !== "mouse" && e.target !== grip) return;
-      startDrag(li, e);
-    });
-    list.append(li);
-  }
-  for (const p of off) {
-    const add = el("button", { className: "link", type: "button", textContent: "Add back" });
-    add.onclick = () => { settings.pages.push(p); drawOrder(); save("data/settings.json"); };
-    list.append(el("li", { className: "off" },
-      el("span", { className: "t", textContent: PAGE_INFO[p][0] }, el("small", { textContent: PAGE_INFO[p][1] })),
-      el("span", { className: "ctl" }, add)));
-  }
+    if (p !== SETUP) li.append(el("button", { class: "box", type: "button", role: "checkbox", "aria-checked": String(shownNow),
+      "aria-label": `Show ${PAGES[p].title} on the Kindle`, title: shownNow ? "Shown. Untick to hide it." : "Hidden. Tick to show it.",
+      onclick: () => togglePage(p) }));
+    li.append(el("button", { class: "pick", type: "button", onclick: () => go(p), "aria-current": p === current ? "page" : null },
+      p !== SETUP && el("span", { class: "n", text: ready ? String(++n) : "" }),
+      el("span", { class: "name", text: p === SETUP ? "Setup" : PAGES[p].title }),
+      el("span", { class: "tag", text: p === SETUP ? "location, sign out" : !shownNow ? "hidden" : ready ? "" : "nothing to show" })));
+    if (shownNow) {
+      const grip = el("button", { class: "grip", type: "button", title: "Drag to reorder",
+        "aria-label": `Move ${PAGES[p].title}. Use the up and down arrow keys.` });
+      grip.addEventListener("keydown", (e) => {
+        const dir = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+        if (!dir) return;
+        e.preventDefault();
+        const pages = settings.pages, i = pages.indexOf(p), j = i + dir;
+        if (j < 0 || j >= pages.length) return;
+        [pages[i], pages[j]] = [pages[j], pages[i]];
+        save("data/settings.json");
+        $("plist").querySelector(`li[data-page="${p}"] .grip`).focus();
+      });
+      grip.addEventListener("pointerdown", (e) => { if (e.button === 0) drag(li, e); });
+      li.append(grip);
+    } else if (p !== SETUP) li.append(el("span", { class: "grip none" }));
+    return li;
+  };
+  $("plist").replaceChildren(...on.map(item), ...off.map(item));
+  $("xlist").replaceChildren(item(SETUP));
 }
-
-// Drag a running-order row: it follows the pointer, and the other rows make
-// room for it. The new order is saved when it's let go.
-function startDrag(li, e) {
+// Drag a row: it follows the pointer and the others make room; saved on release
+function drag(li, e) {
   e.preventDefault();
-  const list = li.parentElement;
-  const before = settings.pages.join();
-  const startY = e.clientY;
+  const list = li.parentElement, y0 = e.clientY, before = settings.pages.join();
   let offset = 0;
   li.classList.add("dragging");
-  try { li.setPointerCapture(e.pointerId); } catch {}
-  const onMove = (ev) => {
-    const place = () => { li.style.transform = `translateY(${ev.clientY - startY + offset}px)`; };
+  const move = (ev) => {
+    const place = () => { li.style.transform = `translateY(${ev.clientY - y0 + offset}px)`; };
     place();
-    // Swap with neighbours while the row's middle is past theirs (loops for fast moves)
     for (;;) {
-      const rows = [...list.querySelectorAll("li.on")];
-      const i = rows.indexOf(li);
-      const r = li.getBoundingClientRect();
-      const mid = r.top + r.height / 2;
+      const rows = [...list.querySelectorAll("li:not(.hidden-page)")].filter((r) => order().includes(r.dataset.page)), i = rows.indexOf(li), r = li.getBoundingClientRect(), mid = r.top + r.height / 2;
       const prev = rows[i - 1], next = rows[i + 1];
-      if (prev && mid < prev.getBoundingClientRect().top + prev.offsetHeight / 2) {
-        offset += prev.offsetHeight; list.insertBefore(li, prev);
-      } else if (next && mid > next.getBoundingClientRect().top + next.offsetHeight / 2) {
-        offset -= next.offsetHeight; list.insertBefore(next, li);
-      } else break;
+      if (prev && mid < prev.getBoundingClientRect().top + prev.offsetHeight / 2) { offset += prev.offsetHeight; list.insertBefore(li, prev); }
+      else if (next && mid > next.getBoundingClientRect().top + next.offsetHeight / 2) { offset -= next.offsetHeight; list.insertBefore(next, li); }
+      else break;
       place();
     }
   };
-  const onUp = () => {
-    li.removeEventListener("pointermove", onMove);
-    li.removeEventListener("pointerup", onUp);
-    li.removeEventListener("pointercancel", onUp);
-    li.classList.remove("dragging");
-    li.style.transform = "";
-    const order = [...list.querySelectorAll("li.on")].map((n) => n.dataset.page);
-    const hidden = settings.pages.filter((p) => !PAGE_INFO[p]);   // keep any unknown names
-    settings.pages = order.concat(hidden);
-    if (settings.pages.join() !== before) save("data/settings.json");
-    drawOrder();
+  const up = () => {
+    removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", up);
+    li.classList.remove("dragging"); li.style.transform = "";
+    const unknown = settings.pages.filter((p) => !PAGES[p]);       // keep names this page doesn't know
+    settings.pages = [...list.children].map((n) => n.dataset.page).filter((p) => order().includes(p)).concat(unknown);
+    if (settings.pages.join() !== before) save("data/settings.json"); else draw();
   };
-  li.addEventListener("pointermove", onMove);
-  li.addEventListener("pointerup", onUp);
-  li.addEventListener("pointercancel", onUp);
+  addEventListener("pointermove", move); addEventListener("pointerup", up); addEventListener("pointercancel", up);
 }
 
-// ---------------------------------------------------------------- sources
-function drawSources() {
-  const row = (list, item, key, placeholder) => {
-    const name = el("input", { className: "field", value: item.name || "", placeholder: "Name" });
-    const max = el("input", { className: "field small max", value: item.max || 3, type: "number", min: 1, max: 10 });
-    const val = el("input", { className: "field small", value: item[key] || "", placeholder });
-    const del = el("button", { className: "link quiet", type: "button", textContent: "Remove" });
-    name.setAttribute("aria-label", "Name"); max.setAttribute("aria-label", "Items shown");
-    val.setAttribute("aria-label", key === "url" ? "Feed address" : "Search query");
-    const commit = () => {
-      item.name = name.value.trim(); item[key] = val.value.trim();
-      item.max = Math.min(Math.max(parseInt(max.value, 10) || 3, 1), 10);
-      if (item.name && item[key]) save("data/settings.json");
-    };
-    for (const i of [name, max, val]) i.addEventListener("change", commit);
-    del.onclick = () => { list.splice(list.indexOf(item), 1); drawSources(); save("data/settings.json"); };
-    return el("div", { className: "src" }, el("div", { className: "top" }, name, max, del), val);
+// ================================================================ editors
+const saveSettings = () => save("data/settings.json");
+const block = (title, intro, ...kids) => el("div", { class: "block" }, title && el("h3", { text: title }), intro && el("p", {}, intro), kids);
+function input(value, onchange, { live, ...props } = {}) {
+  const i = el("input", { class: "in", value: value == null ? "" : String(value), ...props });
+  i.addEventListener(live ? "input" : "change", () => onchange(i.value, i));
+  return i;
+}
+const field = (label, control) => { const id = "f" + Math.random().toString(36).slice(2, 8); control.id = id;
+  return el("div", {}, el("label", { class: "f", for: id, text: label }), control); };
+const numberIn = (v, min, max, set) => input(v, (x, i) => { const n = Math.min(Math.max(parseInt(x, 10) || min, min), max); i.value = n; set(n); },
+                                             { type: "number", min, max, class: "in num" });
+function pageToggle(name) {
+  const on = order().includes(name);
+  return el("label", { class: "showon" },
+    el("button", { class: "box", type: "button", role: "checkbox", "aria-checked": String(on), onclick: () => togglePage(name) }),
+    "Show this page on the Kindle");
+}
+
+const Edit = {};
+
+Edit.today = () => [
+  block("Where it comes from", null,
+    el("ul", { class: "items" },
+      [["Weather", "weather", "Open-Meteo, for " + (((eff("location") || {}).name) || "no location yet")],
+       ["Next up", "agenda", "the next three events in your calendar"],
+       ["To-do", "todos", `your open to-dos (${todoModel.items.filter((x) => !x.done).length} now)`]]
+        .map(([t, p, s]) => el("li", {}, el("div", { class: "body" }, el("b", { text: t }), el("div", { class: "meta", text: s })),
+          el("div", { class: "side" }, el("button", { class: "txt", type: "button", text: "Edit", onclick: () => go(p === "weather" ? "weather" : p) })))))),
+  quickTodo(),
+];
+function quickTodo() {
+  const i = el("input", { class: "in", placeholder: "Add a to-do" });
+  return block("Add a to-do", null, el("form", { class: "row", onsubmit: (e) => { e.preventDefault(); addTodo(i.value); i.value = ""; } },
+    el("div", { class: "grow" }, i), el("button", { class: "btn", type: "submit", text: "Add" })));
+}
+
+Edit.agenda = () => {
+  const hasCal = !!(builtPage("today") || {}).data?.has_calendar;
+  return [
+    block("Calendar", null,
+      el("p", { style: "color:var(--text)" }, hasCal ? "Your calendar is connected." : "No calendar is connected yet."),
+      el("p", {}, "The calendar's secret iCal link is a repository secret, so it never reaches this page or the Kindle. In ",
+        el("a", { href: `https://github.com/${REPO}/settings/secrets/actions`, target: "_blank", rel: "noopener", text: "the repo's Actions secrets" }),
+        ", add or edit ICS_URLS. Several links go on separate lines. Google Calendar: Settings › your calendar › “Secret address in iCal format”.")),
+    block("Days shown", null, el("div", { class: "row" }, numberIn(eff("agenda_days") ?? 7, 1, 14, (n) => { settings.agenda_days = n; saveSettings(); }),
+      el("span", { class: "meta", text: "days, starting today. Up to four events a day fit." }))),
+    deadlineBlock(),
+  ];
+};
+function deadlineBlock() {
+  const words = eff("deadline_keywords") || [];
+  return block("Deadlines", "Events whose title has one of these words are bold, and count down on the Countdowns page.",
+    field("Words, separated by commas", input(words.join(", "), (v) => {
+      settings.deadline_keywords = v.split(",").map((s) => s.trim()).filter(Boolean); saveSettings();
+    })),
+    el("div", { class: "row", style: "margin-top:10px" }, el("span", { class: "meta", text: "Count down deadlines up to" }),
+      numberIn(eff("countdown_calendar_days") ?? 60, 1, 365, (n) => { settings.countdown_calendar_days = n; saveSettings(); }),
+      el("span", { class: "meta", text: "days ahead." })));
+}
+
+Edit.weather = () => [locationBlock()];
+function locationBlock() {
+  const loc = eff("location") || {};
+  const results = el("ul", { class: "places" }); results.hidden = true;
+  const q = el("input", { class: "in", placeholder: "Search for a town or city", type: "search" });
+  const find = async () => {
+    const name = q.value.trim(); if (!name) return;
+    results.hidden = false; results.replaceChildren(el("li", {}, el("button", { type: "button", disabled: true, text: "Searching…" })));
+    try {
+      const j = await (await fetch("https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name=" + encodeURIComponent(name))).json();
+      const rs = j.results || [];
+      results.replaceChildren(...(rs.length ? rs.map((r) => el("li", {}, el("button", { type: "button", onclick: () => {
+        settings.location = { name: r.name, lat: +r.latitude.toFixed(4), lon: +r.longitude.toFixed(4) };
+        if (r.timezone) settings.timezone = r.timezone;
+        saveSettings(); refreshEditor();
+      } }, r.name, el("small", { text: [r.admin1, r.country].filter(Boolean).join(", ") })))) :
+        [el("li", {}, el("button", { type: "button", disabled: true, text: "No place by that name." }))]));
+    } catch (e) { results.replaceChildren(el("li", {}, el("button", { type: "button", disabled: true, text: "Couldn't search: " + e.message }))); }
   };
+  const zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : []);
+  const tz = input(eff("timezone") || "", (v) => {
+    if (zones.length && !zones.includes(v)) { say("That isn't a time zone name, like Europe/London.", "err"); return; }
+    settings.timezone = v; saveSettings();
+  }, { list: "zones", placeholder: "Europe/London" });
+  return block("Location", "For the weather, and the time zone for your calendar and the date.",
+    el("p", { style: "color:var(--text);font-size:16px" }, loc.name ? el("b", { text: loc.name }) : "No location yet.",
+      loc.lat != null ? el("span", { class: "meta", text: `  ${loc.lat}, ${loc.lon}` }) : null),
+    el("form", { class: "row", onsubmit: (e) => { e.preventDefault(); find(); } },
+      el("div", { class: "grow" }, q), el("button", { class: "btn", type: "submit", text: "Search" })),
+    results,
+    el("div", { class: "fields", style: "margin-top:14px" }, field("Time zone", tz)),
+    el("datalist", { id: "zones" }, zones.map((z) => el("option", { value: z }))));
+}
+
+function addTodo(text) {
+  text = text.trim().replace(/\s+/g, " ");
+  if (!text) return;
+  let last = -1;                                   // after the last open one, like the Kindle
+  todoModel.items.forEach((t, i) => { if (!t.done) last = i; });
+  todoModel.items.splice(last + 1, 0, { text, done: false });
+  save("data/todos.md"); refreshEditor();
+}
+Edit.todos = () => {
+  const list = el("ul", { class: "items" });
+  const items = Todos.ordered(todoModel);
+  for (const t of items) {
+    const box = el("button", { class: "box", type: "button", role: "checkbox", "aria-checked": String(t.done), "aria-label": t.text,
+      onclick: () => { t.done = !t.done; save("data/todos.md"); refreshEditor(); } });
+    const txt = input(t.text, (v) => { v = v.trim(); if (!v) return; t.text = v; save("data/todos.md"); }, { class: "in plain", "aria-label": "To-do" });
+    list.append(el("li", { class: "todo" + (t.done ? " done" : "") }, box, el("div", { class: "body" }, txt),
+      el("div", { class: "side" }, el("button", { class: "txt danger", type: "button", text: "Delete",
+        onclick: () => { todoModel.items.splice(todoModel.items.indexOf(t), 1); save("data/todos.md"); refreshEditor(); } }))));
+  }
+  const i = el("input", { class: "in", placeholder: "Add a to-do", "aria-label": "New to-do" });
+  const done = todoModel.items.filter((x) => x.done).length;
+  return [
+    block(null, null, el("form", { class: "row", style: "margin-bottom:8px", onsubmit: (e) => { e.preventDefault(); addTodo(i.value); setTimeout(() => editorEl().querySelector("input[aria-label='New to-do']")?.focus()); } },
+      el("div", { class: "grow" }, i), el("button", { class: "btn", type: "submit", text: "Add" })),
+      items.length ? list : el("p", { class: "empty", text: "Nothing to do. Add the first one above." }),
+      done ? el("button", { class: "txt quiet", type: "button", text: `Delete the ${plural(done, "ticked one", "ticked ones")}`,
+        onclick: () => { todoModel.items = todoModel.items.filter((x) => !x.done); save("data/todos.md"); refreshEditor(); } }) : null),
+  ];
+};
+
+Edit.countdowns = () => {
+  const own = settings.countdowns || (settings.countdowns = []);
+  const t = today();
+  const list = el("ul", { class: "items" });
+  for (const c of own.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""))) {
+    const n = c.date ? between(t, c.date) : null;
+    list.append(el("li", {}, el("span", { class: "big", text: n == null ? "" : n < 0 ? "–" : String(n) }),
+      el("div", { class: "body" },
+        el("div", { class: "row" }, el("div", { class: "grow" }, input(c.name, (v) => { if (v.trim()) { c.name = v.trim(); saveSettings(); } }, { class: "in plain name", "aria-label": "Name" })),
+          input(c.date, (v) => { if (v) { c.date = v; saveSettings(); refreshEditor(); } }, { type: "date", class: "in plain", style: "width:auto", "aria-label": "Date" })),
+        n != null && n < 0 ? el("div", { class: "meta", text: "Passed, so it isn't shown." }) : null),
+      el("div", { class: "side" }, el("button", { class: "txt danger", type: "button", text: "Delete",
+        onclick: () => { own.splice(own.indexOf(c), 1); saveSettings(); refreshEditor(); } }))));
+  }
+  const name = el("input", { class: "in", placeholder: "What's happening", required: true, "aria-label": "Name" });
+  const date = el("input", { class: "in", type: "date", required: true, style: "width:auto", "aria-label": "Date", min: t });
+  const fromCal = (pageData("countdowns").data.countdowns || []).filter((c) => !own.some((o) => o.name === c.name && o.date === c.date));
+  return [
+    block("Yours", null, own.length ? list : el("p", { class: "empty", text: "No countdowns yet." }),
+      el("form", { class: "row", onsubmit: (e) => { e.preventDefault(); own.push({ name: name.value.trim(), date: date.value }); saveSettings(); refreshEditor(); } },
+        el("div", { class: "grow" }, name), date, el("button", { class: "btn", type: "submit", text: "Add" }))),
+    block("From your calendar", "Deadline events, found by the words on the Agenda page.",
+      fromCal.length ? el("ul", { class: "items" }, fromCal.map((c) => el("li", {}, el("span", { class: "big", text: String(c.days) }),
+        el("div", { class: "body" }, el("div", { text: c.name }), el("div", { class: "meta", text: longDate(c.date) + " " + pd(c.date).y })))))
+        : el("p", { class: "empty", text: "None in the next " + (eff("countdown_calendar_days") ?? 60) + " days." }),
+      el("button", { class: "txt", type: "button", text: "Change the deadline words", onclick: () => go("agenda") })),
+  ];
+};
+
+Edit.dots = () => {
+  const d = settings.dots || (settings.dots = {});
+  const t = today(), y = t.slice(0, 4);
+  const set = (k) => (v) => {
+    d[k] = k === "name" ? v.trim() : v;
+    if (d.start && d.end && d.end <= d.start) { say("The end date needs to be after the start date.", "err"); return; }
+    saveSettings();
+  };
+  const preset = (label, s, e, n) => el("button", { class: "btn", type: "button", text: label,
+    onclick: () => { Object.assign(d, { start: s, end: e, name: n }); saveSettings(); refreshEditor(); } });
+  const nextMonth = addDays(t.slice(0, 8) + "28", 4).slice(0, 8) + "01";
+  return [
+    block(null, null, el("div", { class: "fields" },
+      field("From", input(d.start || "", set("start"), { type: "date" })),
+      field("Until", input(d.end || "", set("end"), { type: "date" }))),
+      field("Words after “days left”", input(d.name || "", set("name"), { placeholder: "in " + y, live: true }))),
+    block("Quick picks", null, el("div", { class: "row" },
+      preset("This year", y + "-01-01", (+y + 1) + "-01-01", "in " + y),
+      preset("This month", t.slice(0, 8) + "01", nextMonth, "in " + MONTHS[pd(t).m - 1]),
+      preset("100 days from today", t, addDays(t, 100), ""))),
+  ];
+};
+
+Edit.reading = () => {
   settings.feeds = settings.feeds || []; settings.arxiv = settings.arxiv || [];
-  $("feed-list").replaceChildren(...settings.feeds.map((f) => row(settings.feeds, f, "url", "https://…/feed.xml")));
-  $("arxiv-list").replaceChildren(...settings.arxiv.map((a) => row(settings.arxiv, a, "query", 'cat:cs.LG AND abs:"transformer"')));
-}
-$("feed-add").onclick = () => { settings.feeds.push({ name: "", url: "", max: 4 }); drawSources(); };
-$("arxiv-add").onclick = () => { settings.arxiv.push({ name: "", query: "", max: 3 }); drawSources(); };
-
-// -------------------------------------------------- front page and reading
-const esc = (t) => el("span", { textContent: t == null ? "" : String(t) });
-const dayLabel = (iso, today) => {
-  const d = iso.slice(0, 10);
-  if (d === today) return "Today";
-  const t = new Date(today + "T12:00"); t.setDate(t.getDate() + 1);
-  if (d === t.toISOString().slice(0, 10)) return "Tomorrow";
-  return new Date(d + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  const src = (list, item, key, placeholder) => el("li", {},
+    el("div", { class: "body" },
+      el("div", { class: "row" }, el("div", { class: "grow" }, input(item.name, (v) => { item.name = v.trim(); if (item.name && item[key]) saveSettings(); }, { class: "in plain name", placeholder: "Name", "aria-label": "Name" })),
+        el("label", { class: "meta" }, "Show ", numberIn(item.max || 3, 1, 10, (n) => { item.max = n; if (item.name && item[key]) saveSettings(); }))),
+      input(item[key], (v) => { item[key] = v.trim(); if (item.name && item[key]) saveSettings(); }, { class: "in plain url", placeholder, "aria-label": key === "url" ? "Feed address" : "Search" })),
+    el("div", { class: "side" }, el("button", { class: "txt danger", type: "button", text: "Delete",
+      onclick: () => { list.splice(list.indexOf(item), 1); saveSettings(); refreshEditor(); } })));
+  const add = (list, blank) => el("button", { class: "btn", type: "button", text: "Add", onclick: () => { list.push(blank); refreshEditor(); } });
+  const secs = (pageData("reading").data.sections || []);
+  return [
+    block("News feeds", "Any RSS or Atom address.",
+      el("ul", { class: "items" }, settings.feeds.map((f) => src(settings.feeds, f, "url", "https://…/feed.xml"))),
+      add(settings.feeds, { name: "", url: "", max: 4 })),
+    block("arXiv searches", null,
+      el("ul", { class: "items" }, settings.arxiv.map((a) => src(settings.arxiv, a, "query", 'cat:cs.LG AND abs:"diffusion"'))),
+      add(settings.arxiv, { name: "", query: "", max: 3 }),
+      el("p", { style: "margin-top:10px" }, "Newest first. Search syntax: ", el("a", { href: "https://info.arxiv.org/help/api/user-manual.html#query_details", target: "_blank", rel: "noopener", text: "the arXiv API guide" }), ".")),
+    block("On the Kindle now", "From the last build, with their links.",
+      secs.length ? el("div", { class: "briefs" }, secs.map((s) => el("div", { class: "brief" }, el("h4", { text: s.name }),
+        s.entries.map((e) => /^https?:\/\//.test(e.link || "")
+          ? el("a", { href: e.link, target: "_blank", rel: "noopener" }, e.title, e.meta && el("small", { text: e.meta }))
+          : el("span", { class: "t" }, e.title, e.meta && el("small", { text: e.meta }))))))
+        : el("p", { class: "empty", text: "Nothing yet. Items show after the next build." })),
+  ];
 };
-function drawFront(d) {
-  const page = (d.pages || []).find((p) => p.name === "today");
-  const t = (page && page.data) || {};
-  const card = el("div", { className: "kcard" });
-  const date = new Date((d.today || todayISO()) + "T12:00");
-  card.append(el("div", { className: "kdate" },
-    el("b", { textContent: date.getDate() }),
-    el("span", {}, el("strong", { textContent: date.toLocaleDateString("en-GB", { weekday: "long" }) }),
-       el("small", { textContent: date.toLocaleDateString("en-GB", { month: "long", year: "numeric" }) }))));
-  const w = t.weather;
-  if (w && w.days && w.days[0]) {
-    card.append(el("div", { className: "kweather" },
-      el("b", { textContent: w.temp + "°" }), esc(w.desc),
-      el("small", { textContent: `High ${w.days[0].hi}°, low ${w.days[0].lo}°. Feels ${w.feels}°.` })));
-  } else if (t.weather_error) card.append(el("p", { className: "note", textContent: t.weather_error }));
-  card.append(el("h3", { textContent: "Next up" }));
-  const ev = t.upcoming || [];
-  if (!ev.length) card.append(el("p", { className: "note", textContent: t.has_calendar ? "Nothing coming up." : "No calendar set." }));
-  for (const e of ev) {
-    const when = e.allday ? "All day" : e.start.slice(11, 16);
-    card.append(el("div", { className: "kev" + (e.deadline ? " deadline" : "") },
-      el("small", { textContent: dayLabel(e.start, d.today) + " " + when }), esc(e.title)));
-  }
-  $("frame").replaceChildren(card);
-  $("caption").textContent = d.location ? "Weather for " + d.location + "." : "";
-}
-async function loadFront() {
-  try {
-    const d = await readOut("data.json", "json");
-    $("credit").textContent = "Updated " + new Date(d.updated).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" });
-    drawFront(d);
-    const r = (d.pages || []).find((p) => p.name === "reading");
-    drawBriefs(r && r.data && r.data.sections);
-  } catch (e) {
-    $("frame").replaceChildren(el("div", { className: "empty", textContent:
-      "No data.json yet. It appears after the first run of the render workflow (" + e.message + ")." }));
-    drawBriefs(null);
-  }
-}
-// Start the render workflow, wait for the out branch to change, then reload
-$("refresh").onclick = async () => {
-  const btn = $("refresh"); btn.disabled = true;
-  try {
-    const sha = async () => (await (await gh("/commits/out", { headers: { Accept: "application/vnd.github.sha" } })).text()).trim();
-    const before = await sha().catch(() => "");
-    await gh("/actions/workflows/render.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main" }) });
-    status("Rebuilding data.json…");
-    for (let i = 0; i < 24; i++) {
-      await new Promise((r) => setTimeout(r, 5000));
-      if ((await sha().catch(() => before)) !== before) { status("Updated."); await loadFront(); return; }
+
+Edit.habits = () => {
+  const t = today(), p = pd(t), ym = t.slice(0, 7);
+  const view = Habits.view(habitModel, t);
+  const first = new Date(Date.UTC(p.y, p.m - 1, 1)).getUTCDay();          // Sunday = 0
+  const lead = (first + 6) % 7;                                              // weeks start on Monday
+  const row = (name) => Habits.month(habitModel, ym, true).rows.find((r) => r.name === name);
+  const habits = view.rows.map((r) => {
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push(el("span", { class: "pad" }));
+    for (let day = 1; day <= view.ndays; day++) {
+      const on = r.days.includes(day);
+      cells.push(el("button", { type: "button", text: String(day), class: (on ? "on" : "") + (day === p.d ? " today" : ""),
+        disabled: day > p.d, "aria-pressed": String(on), "aria-label": `${r.name}, ${MONTHS[p.m - 1]} ${day}`,
+        onclick: () => { const x = row(r.name); on ? x.days.delete(day) : x.days.add(day); save("data/habits.md"); refreshEditor(); } }));
     }
-    status("The rebuild is taking long. Check the repo's Actions tab.", true);
-  } catch (e) {
-    status(e.status === 403 || e.status === 404 ? "The token can't start the workflow. It needs Actions: Read and write." : "Couldn't refresh: " + e.message, true);
-  } finally { btn.disabled = false; }
+    return el("div", { class: "habit" },
+      el("div", { class: "top" }, el("div", { class: "grow", style: "flex:1" }, input(r.name, (v) => {
+          v = v.replace(/:/g, "").trim(); if (!v || v === r.name) return;
+          for (const mo of habitModel.months) for (const x of mo.rows) if (x.name === r.name) x.name = v;
+          save("data/habits.md"); refreshEditor();
+        }, { class: "in plain", "aria-label": "Habit name" })),
+        el("span", { class: "stat", text: `${r.count} of ${view.day} days` + (r.streak > 1 ? `, ${r.streak} in a row` : "") }),
+        el("button", { class: "txt danger", type: "button", text: "Delete", onclick: () => {
+          const mo = Habits.month(habitModel, ym, true); mo.rows = mo.rows.filter((x) => x.name !== r.name);
+          save("data/habits.md"); refreshEditor();
+        } })),
+      el("div", { class: "dow", "aria-hidden": "true" }, ["M", "T", "W", "T", "F", "S", "S"].map((s) => el("span", { text: s }))),
+      el("div", { class: "days" }, cells));
+  });
+  const n = el("input", { class: "in", placeholder: "Read 20 minutes", "aria-label": "New habit" });
+  return [
+    block(MONTHS[p.m - 1] + " " + p.y, "Tap a day to tick or untick it. Earlier months stay in data/habits.md.",
+      habits.length ? habits : el("p", { class: "empty", text: "No habits yet." })),
+    block("Add a habit", null, el("form", { class: "row", onsubmit: (e) => {
+      e.preventDefault();
+      const v = n.value.replace(/:/g, "").trim(); if (!v) return;
+      const mo = Habits.month(habitModel, ym, true);
+      if (!mo.rows.some((x) => x.name === v)) mo.rows.push({ name: v, days: new Set() });
+      save("data/habits.md"); refreshEditor();
+    } }, el("div", { class: "grow" }, n), el("button", { class: "btn", type: "submit", text: "Add" }))),
+  ];
 };
-function drawBriefs(sections) {
-  const box = $("briefs"); box.replaceChildren();
-  if (!sections || !sections.length) {
-    box.append(el("p", { className: "note", textContent: "No items yet. They appear after the next render." }));
-    return;
-  }
-  for (const s of sections) {
-    const b = el("div", { className: "brief" }, el("h3", { textContent: s.name }));
-    for (const e of s.entries) {
-      const safe = /^https?:\/\//.test(e.link || "");
-      const a = el(safe ? "a" : "div", safe ? { href: e.link, target: "_blank", rel: "noopener" } : { className: "brief-plain" });
-      a.append(e.title);
-      if (e.meta) a.append(el("small", { textContent: e.meta }));
-      b.append(a);
-    }
-    box.append(b);
-  }
+
+// Quotes and words are edited as plain text, one per line:
+//   The unexamined life is not worth living. — Socrates
+//   ephemeral (adjective): Lasting a very short time. — The ephemeral glow…
+const QuoteLines = {
+  show: (x) => x.text + (x.author ? " — " + x.author : ""),
+  read(line) {
+    const i = line.lastIndexOf(" — ");
+    return i < 0 ? { text: line, author: "" } : { text: line.slice(0, i), author: line.slice(i + 3) };
+  },
+};
+const WordLines = {
+  show: (x) => x.word + (x.kind ? ` (${x.kind})` : "") + ": " + x.meaning + (x.example ? " — " + x.example : ""),
+  read(line) {
+    const m = line.match(/^([^(:]+?)\s*(?:\(([^)]*)\))?\s*:\s*(.*)$/);
+    if (!m) return { word: line, kind: "", meaning: "", example: "" };
+    const i = m[3].indexOf(" — ");
+    return { word: m[1], kind: m[2] || "", meaning: i < 0 ? m[3] : m[3].slice(0, i), example: i < 0 ? "" : m[3].slice(i + 3) };
+  },
+};
+Edit.quote = () => {
+  const box = (model, path, fmt, title, intro, placeholder) => {
+    const t = el("textarea", { class: "in", rows: Math.min(Math.max(model.items.length + 1, 4), 16), spellcheck: true,
+                               placeholder, "aria-label": title });
+    t.value = model.items.map(fmt.show).join("\n");
+    t.addEventListener("input", () => {
+      model.items = t.value.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean).map(fmt.read)
+        .map((x) => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, v.trim()])));
+      save(path); drawToday();
+    });
+    const now = el("p", { class: "meta", "data-today": path });
+    return block(title, intro, now, t);
+  };
+  const out = [
+    box(quoteModel, "data/quotes.yaml", QuoteLines, "Quotes", "One a line: the quote, then a dash and who said it. One is shown a day, in turn.",
+        "The unexamined life is not worth living. — Socrates"),
+    box(wordModel, "data/words.yaml", WordLines, "Words", "One a line: the word, its kind in brackets, a colon, the meaning, then a dash and an example.",
+        "ephemeral (adjective): Lasting a very short time. — The ephemeral glow of the screen."),
+  ];
+  setTimeout(drawToday);
+  return out;
+};
+// "Today: …" above each box, kept up to date while typing
+function drawToday() {
+  const q = quoteModel.items[pickIndex(quoteModel.items.length)], w = wordModel.items[pickIndex(wordModel.items.length)];
+  const set = (path, x, show) => { const n = editorEl().querySelector(`[data-today="${path}"]`); if (n) n.replaceChildren(x ? el("span", { class: "badge", text: "Today" }) : "", x ? show(x) : ""); };
+  set("data/quotes.yaml", q, QuoteLines.show);
+  set("data/words.yaml", w, WordLines.show);
 }
 
-// ------------------------------------------------------------------ boot
-$("today").textContent = new Date().toLocaleDateString("en-US",
-  { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+Edit.photo = () => {
+  const ti = pickIndex(photos.length), tom = photos.length ? (ordinal(today()) + 1) % photos.length : -1;
+  const pick = el("input", { type: "file", accept: "image/*", multiple: true, hidden: true, onchange: () => upload(pick.files) });
+  const drop = el("div", { class: "drop" }, "Drop photos here, or ",
+    el("button", { class: "txt", type: "button", text: "choose some", onclick: () => pick.click() }),
+    ". They're resized to 1600 px and saved as JPEG in photos/.", pick);
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files); });
+  return [
+    block(null, "Cropped to fill the screen; keep the subject near the middle.", drop),
+    block(photos.length ? plural(photos.length, "photo", "photos") : "Photos", null,
+      photos.length ? el("ul", { class: "gallery" }, photos.map((ph, i) => el("li", {},
+        el("div", { class: "ph" }, ph.url ? el("img", { src: ph.url, alt: ph.name, loading: "lazy" }) : null),
+        el("span", { class: "cap", title: ph.name }, i === ti ? el("span", { class: "badge", style: "margin:0 6px 0 0", text: "Today" }) : i === tom ? "Tomorrow · " : "", ph.name),
+        el("button", { class: "txt danger", type: "button", text: "Delete", style: "align-self:flex-start", onclick: () => deletePhoto(ph) }))))
+        : el("p", { class: "empty", text: "No photos yet." })),
+  ];
+};
+async function shrink(file) {
+  const img = await createImageBitmap(file);
+  const s = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = el("canvas", { width: Math.round(img.width * s), height: Math.round(img.height * s) });
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return new Promise((res) => c.toBlob(res, "image/jpeg", 0.86));
+}
+async function upload(list) {
+  for (const f of [...list].filter((x) => x.type.startsWith("image/"))) {
+    say("Uploading " + f.name + "…", "busy");
+    try {
+      const blob = await shrink(f);
+      const b = new Uint8Array(await blob.arrayBuffer());
+      let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+      let base = f.name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "photo", name = base + ".jpg";
+      for (let n = 2; photos.some((p) => p.name === name); n++) name = `${base}-${n}.jpg`;
+      const j = await commit(async () => (await gh(`/contents/photos/${enc(name)}`, { method: "PUT",
+        body: JSON.stringify({ message: "Portal: add photo " + name, content: btoa(s), branch: "main" }) })).json());
+      photos.push({ name, sha: j.content.sha, url: URL.createObjectURL(blob) });
+      photos.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      draw(); rebuilt();
+    } catch (e) { say("Couldn't upload " + f.name + ": " + e.message, "err"); return; }
+  }
+}
+async function deletePhoto(ph) {
+  if (!confirm(`Delete ${ph.name} from the repo?`)) return;
+  try {
+    await commit(() => gh(`/contents/photos/${enc(ph.name)}`, { method: "DELETE",
+      body: JSON.stringify({ message: "Portal: delete photo " + ph.name, sha: ph.sha, branch: "main" }) }));
+    photos.splice(photos.indexOf(ph), 1); draw(); rebuilt();
+  } catch (e) { say("Couldn't delete " + ph.name + ": " + e.message, "err"); }
+}
+
+Edit[SETUP] = () => [
+  locationBlock(),
+  block("Calendar", null, el("p", {}, "The calendar link is the ICS_URLS secret. ",
+    el("button", { class: "txt", type: "button", text: "Calendar settings", onclick: () => go("agenda") }))),
+  block("The Kindle", null,
+    el("p", {}, "In KOReader: Tools › Dashboard (kdash). Set the repo to ", el("b", { text: REPO }),
+      " and the token to the same one as here, or put them in koreader/kdash/repo.txt and token.txt. Refresh on the Kindle starts a build and downloads it.")),
+  block("This browser", "The token is kept here only, for this repo.",
+    el("div", { class: "row" },
+      el("button", { class: "btn", type: "button", text: "Sign out", onclick: () => { store.del(tokenKey()); token = null; showSignin(); } }),
+      el("a", { href: `https://github.com/${REPO}`, target: "_blank", rel: "noopener", text: "Open the repo on GitHub" }))),
+];
+
+// ======================================================= editor and routing
+const editorEl = () => $("editor");
+function refreshEditor() {
+  const ed = editorEl(), name = current;
+  const p = PAGES[name], kids = [];
+  const head = el("header", {}, el("h1", { text: name === SETUP ? "Setup" : p.title }),
+    el("p", { class: "about", text: name === SETUP ? "Where the dashboard is, and how the Kindle reaches it." : p.about }));
+  if (p) {
+    const inOrder = order().includes(name);
+    head.append(pageToggle(name));
+    if (!inOrder) head.append(el("p", { class: "notice", text: "Hidden: the Kindle skips this page." }));
+    else if (!setUp(name)) head.append(el("p", { class: "notice", text: "Not on the Kindle yet: it has nothing to show. " + (p.needs || "") }));
+  }
+  kids.push(head, ...(Edit[name] ? Edit[name]() : []));
+  // Keep focus and scroll where they were when redrawing after an edit
+  const active = document.activeElement, label = active && active.getAttribute && active.getAttribute("aria-label");
+  ed.replaceChildren(...kids);
+  if (label && ed.contains(active) === false) {
+    const same = ed.querySelector(`[aria-label="${CSS.escape(label)}"]`);
+    if (same && same.tagName === "BUTTON") same.focus({ preventScroll: true });
+  }
+}
+function draw() { drawList(); drawScreen(); }
+function go(name, push = true) {
+  const changed = name !== current;
+  current = name;
+  draw(); refreshEditor();
+  if (push && changed) history.replaceState(null, "", "#" + name);
+  if (!changed) return;
+  const target = matchMedia("(max-width: 720px)").matches ? $("app").querySelector(".device") : $("app");
+  if (target.getBoundingClientRect().top < 0) target.scrollIntoView({ block: "start" });
+}
+addEventListener("hashchange", () => { const h = location.hash.slice(1); if (PAGES[h] || h === SETUP) go(h, false); });
+
+// =================================================================== loading
+async function loadOut() {
+  try {
+    data = await (await readRaw("data.json", "out")).json();
+    bootCountdowns = new Set((settings.countdowns || []).map((c) => c.name.toLowerCase() + c.date));
+    const ph = (data.pages || []).find((p) => p.name === "photo");
+    if (ph && ph.png) {
+      const blob = await (await readRaw(ph.png, "out")).blob();
+      if (photoPng) URL.revokeObjectURL(photoPng);
+      photoPng = URL.createObjectURL(blob);
+    }
+  } catch (e) {
+    if (e.status !== 404) say("Couldn't load the Kindle's data: " + e.message, "err");
+  }
+  $("refresh").hidden = false;
+  draw(); refreshEditor();
+  if (!$("state").classList.contains("err") && !watching) say(updatedText());
+}
+async function loadPhotos() {
+  try {
+    const list = await (await gh("/contents/photos?ref=main")).json();
+    photos = list.filter((f) => f.type === "file" && /\.(jpe?g|png)$/i.test(f.name))
+      .map((f) => ({ name: f.name, sha: f.sha, url: null }))
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  } catch { photos = []; }
+  draw(); if (current === "photo") refreshEditor();
+  for (const ph of photos) {               // thumbnails, one at a time
+    try { ph.url = URL.createObjectURL(await (await readRaw("photos/" + ph.name, "main")).blob()); } catch {}
+    if (current === "photo") refreshEditor();
+    if (current === "photo" && !photoPng) drawScreen();
+  }
+}
 
 function showSignin(msg) {
-  $("paper").hidden = true; $("nav").hidden = true; $("signin").hidden = false;
-  $("repo").value = REPO;
-  $("repo").hidden = !!FROM_URL;
+  $("app").hidden = true; $("foot").hidden = true; $("refresh").hidden = true; $("signin").hidden = false;
+  $("repo").value = REPO; $("repo").hidden = !!FROM_URL;
   $("repo-name").textContent = REPO || "your data repo";
   $("signin-error").textContent = msg || "";
+  say("");
 }
 $("signin-form").onsubmit = (e) => {
   e.preventDefault();
   const r = FROM_URL || $("repo").value.trim().replace(/^https:\/\/github\.com\//, "").replace(/\/+$/, "");
   const v = $("token").value.trim();
-  if (!/^[\w.-]+\/[\w.-]+$/.test(r)) { $("signin-error").textContent = "The repo is owner/name, e.g. octocat/my-kdash-data."; return; }
+  if (!/^[\w.-]+\/[\w.-]+$/.test(r)) { $("signin-error").textContent = "The repo is owner/name, like octocat/my-kdash-data."; return; }
   if (!v) return;
   setRepo(r); if (!FROM_URL) store.set("kdash-repo", r);
-  token = v; store.set(tokenKey(), v); boot();
+  token = v; store.set(tokenKey(), v); $("token").value = ""; boot();
 };
-$("signout").onclick = () => { store.del(tokenKey()); token = null; showSignin(); };
 
 async function boot() {
   if (!token || !REPO) { showSignin(); return; }
-  status("Loading…");
+  $("repo-label").textContent = REPO;
+  say("Loading…", "busy");
+  let got;
   try {
-    const [s, t] = await Promise.all([readFile("data/settings.json"), readFile("data/todos.md")]);
-    settings = Object.assign({ pages: [], countdowns: [], dots: {}, feeds: [], arxiv: [] }, JSON.parse(s.text));
-    parseTodos(t.text);
-    register("data/settings.json", s.sha, () => JSON.stringify(settings, null, 2) + "\n", "Portal: update settings");
-    register("data/todos.md", t.sha, buildTodos, "Portal: update to-dos");
+    got = await Promise.all(["data/settings.json", "data/todos.md", "data/habits.md", "data/quotes.yaml", "data/words.yaml", "config.yaml"].map((p) => readFile(p)));
   } catch (e) {
-    if (e.status === 401 || e.status === 403 || e.status === 404) {
+    if (e.status === 401 || e.status === 403) {
       store.del(tokenKey()); token = null;
-      showSignin(e.status === 404 && token
-        ? "Couldn't find data/settings.json and data/todos.md in " + REPO + " (" + e.message + "). Check the repo name, and that the token has access to it with Contents: Read and write."
-        : "That token can't read the repo (" + e.message + "). Check it has access to " + REPO + " with Contents: Read and write.");
+      showSignin(`That token can't read ${REPO} (${e.message}). Check it has access to this repo with Contents: Read and write.`);
     } else showSignin("Couldn't reach GitHub: " + e.message);
-    status("");
     return;
   }
-  $("signin").hidden = true; $("paper").hidden = false; $("nav").hidden = false;
-  drawTodos(); drawCounts(); drawDots(); drawOrder(); drawSources();
-  status("");
-  loadFront();
+  const [s, t, h, q, w, c] = got;
+  if (!s.sha && !t.sha && !c.sha) {
+    store.del(tokenKey()); token = null;
+    showSignin(`${REPO} has no config.yaml or data/ folder. Check the repo name, and that the token can see this repo.`);
+    return;
+  }
+  try { config = jsyaml.load(c.text) || {}; } catch { config = {}; }
+  try { settings = JSON.parse(s.text || "{}"); } catch { settings = {}; }
+  settings = Object.assign({ pages: config.pages || Object.keys(PAGES) }, settings);
+  todoModel = Todos.parse(t.text); habitModel = Habits.parse(h.text);
+  quoteModel = Quotes.parse(q.text); wordModel = Words.parse(w.text);
+  register("data/settings.json", s.sha, () => JSON.stringify(settings, null, 2) + "\n", "Portal: update settings",
+           (x) => { settings = JSON.parse(x); });
+  register("data/todos.md", t.sha, () => Todos.build(todoModel), "Portal: update to-dos", (x) => { todoModel = Todos.parse(x); });
+  register("data/habits.md", h.sha, () => Habits.build(habitModel), "Portal: update habits", (x) => { habitModel = Habits.parse(x); });
+  register("data/quotes.yaml", q.sha, () => Quotes.build(quoteModel), "Portal: update quotes", (x) => { quoteModel = Quotes.parse(x); });
+  register("data/words.yaml", w.sha, () => Words.build(wordModel), "Portal: update words", (x) => { wordModel = Words.parse(x); });
+
+  $("signin").hidden = true; $("app").hidden = false; $("foot").hidden = false;
+  const h0 = location.hash.slice(1);
+  current = PAGES[h0] || h0 === SETUP ? h0 : (order()[0] || "today");
+  await loadOut();
+  loadPhotos();
+  lastRun().then((run) => {
+    if (run && run.status === "completed" && run.conclusion === "failure" && !watching) {
+      say("", "err");
+      $("state-text").replaceChildren("The last build failed. ", el("a", { href: run.html_url, target: "_blank", rel: "noopener", text: "See why" }));
+    }
+  }).catch(() => {});
 }
+$("today").textContent = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 boot();
 </script>
 </body>

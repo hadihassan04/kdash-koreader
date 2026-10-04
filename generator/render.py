@@ -192,6 +192,11 @@ def jsonable(v):
 
 
 # ------------------------------------------------------------------- main ---
+# Keys data/settings.json (edited by the companion page) can set over config.yaml
+SETTINGS_KEYS = ("pages", "countdowns", "dots", "feeds", "arxiv", "location", "timezone",
+                 "agenda_days", "deadline_keywords", "countdown_calendar_days")
+
+
 def load_config():
     """config.yaml, overlaid with data/settings.json if there is one."""
     cfg = yaml.safe_load(open(os.path.join(ROOT, "config.yaml")))
@@ -199,7 +204,7 @@ def load_config():
     if os.path.exists(path):
         with open(path) as f:
             s = json.load(f)
-        for k in ("pages", "countdowns", "dots", "feeds", "arxiv"):
+        for k in SETTINGS_KEYS:
             if k in s:
                 cfg[k] = s[k]
 

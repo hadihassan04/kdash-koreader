@@ -884,7 +884,10 @@ Pages.today = {
 }
 
 Pages.agenda = {
-    title = function() return _("Agenda"), _("next 7 days") end,
+    title = function(d)
+        local n = #(d.agenda or {})
+        return _("Agenda"), n == 1 and _("today") or string.format(_("next %d days"), n > 0 and n or 7)
+    end,
     body = function(dash, d, h, all)
         local rows = {}
         errorRows(rows, d.events_error)

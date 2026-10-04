@@ -23,8 +23,8 @@ A page with nothing set up (no calendar, no photos...) hides itself.
 2. Copy everything in this folder, including `.github/`, to the root of that repo
    and push it to `main`.
 3. Edit `config.yaml` (your `timezone` and `location`: name, lat, lon) and
-   `data/settings.json` (pages, countdowns, dots, feeds, arXiv), or use the
-   companion page for the second.
+   `data/settings.json` (pages, countdowns, dots, feeds, arXiv), or set them
+   all on the companion page.
 4. Add your calendar: in the repo, Settings > Secrets and variables > Actions >
    **New repository secret**, name `ICS_URLS`, value your calendar's secret iCal
    link (Google Calendar: Settings > your calendar > "Secret address in iCal
@@ -37,21 +37,27 @@ A page with nothing set up (no calendar, no photos...) hides itself.
    **Contents** and **Actions**, read and write.
 7. Optional, the companion page: Settings > Pages > Source: **GitHub Actions**,
    then Actions > Deploy portal > Run workflow. It's then at
-   `https://<you>.github.io/<this-repo>/` and asks only for the token. GitHub
-   Pages on a private repo needs a paid plan (Pro or Team); without one, open
-   `portal/index.html` from a download of the repo, and it asks for the repo
-   name as well.
+   `https://<you>.github.io/<this-repo>/`; the workflow writes this repo's name
+   into it, so it asks only for the token. GitHub Pages on a private repo needs
+   a paid plan (Pro or Team); without one, open `portal/index.html` from a
+   download of the repo, and it asks for the repo name as well.
 8. On the Kindle, set the repo (`owner/name`) and the token in Tools > Dashboard
    (kdash), or put them in `koreader/kdash/repo.txt` and `koreader/kdash/token.txt`.
 
 ## Everyday use
-- The companion page edits to-dos and `data/settings.json` (page order,
-  countdowns, dots, feeds, arXiv) from any browser.
+- The companion page shows every page as the Kindle draws it (flip through
+  them on the drawn Kindle) and edits what each one is made from: tick pages to
+  show or hide them and drag them into order; to-dos; habits (any day of the
+  month); countdowns; the dots page; feeds and arXiv searches; quotes and
+  words; photos (upload and delete); the location, time zone and calendar
+  options. Each change is a commit, and the preview follows your edits at once.
 - Tick, add and delete to-dos and habits on the Kindle; it commits the files here.
   You can also edit them in the GitHub app: every push rebuilds `data.json`.
 - To test changes on a computer: `pip install -r requirements.txt`, then
   `python render.py` (real data; set `ICS_URLS` in the environment for the
   calendar) or `python render.py --demo` (sample data, no network). The output
   is in `out/`.
-- `pages`, `countdowns`, `dots`, `feeds` and `arxiv` can also go in
-  `config.yaml`; `data/settings.json` wins where both have a key.
+- `data/settings.json` can hold any key of `config.yaml` that the companion
+  page edits (`pages`, `countdowns`, `dots`, `feeds`, `arxiv`, `location`,
+  `timezone`, `agenda_days`, `deadline_keywords`, `countdown_calendar_days`);
+  it wins where both have a key.

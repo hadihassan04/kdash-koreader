@@ -56,11 +56,15 @@ workflow and refresh timings are constants at the top of `kdash.koplugin/main.lu
 
 ## Companion web page
 The data repo publishes its own companion page on GitHub Pages
-(`https://<you>.github.io/<data-repo>/`): add and tick to-dos, set countdowns and
-the dots page, reorder or hide pages, edit feeds and arXiv searches, see a
-summary of today's data and start a refresh. It only asks for the token (the
-same one as the Kindle), kept in that browser. It's `generator/portal/`; see
-[generator/README.md](generator/README.md) to switch it on.
+(`https://<you>.github.io/<data-repo>/`). It shows every page as the Kindle
+draws it, and edits what each is made from: show, hide and reorder pages,
+to-dos, habits, countdowns, the dots page, feeds and arXiv searches, quotes and
+words, photos, and the location and calendar options. It also starts a
+refresh. It asks only for the token (the same one as the Kindle), kept in that
+browser. It's `generator/portal/`; see [generator/README.md](generator/README.md)
+to switch it on. This repo's copy, at
+https://hadihassan04.github.io/kdash-koreader/, works with any data repo: it
+asks for the repo name as well, once.
 
 ## Install
 First set up the data repo (see above and `generator/README.md`). Then:

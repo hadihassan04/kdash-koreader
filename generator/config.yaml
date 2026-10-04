@@ -7,7 +7,8 @@ location:                         # for the weather (Open-Meteo, no key needed)
 
 # Page order, countdowns, the dots page, feeds and arXiv searches are in
 # data/settings.json, which the companion web page (portal/) edits.
-# You can edit it by hand too.
+# You can edit it by hand too. Any key below can go there as well, and
+# settings.json wins (the page sets location, timezone and the calendar options).
 
 agenda_days: 7
 # Calendar events whose title contains one of these are marked as deadlines

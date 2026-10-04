@@ -343,13 +343,11 @@
 <script>
 "use strict";
 // ======================================================================= setup
-// The repo this page belongs to. A data repo's Pages workflow writes it in at
-// deploy time, so only the token is asked for. The plugin repo's copy is
-// written "-": it belongs to no data repo, so it asks for one (remembered).
-// Otherwise a github.io address gives it; a local file asks for it too.
+// The repo this page belongs to. The Pages workflow writes it in at deploy
+// time, so only the token is asked for. Failing that, a github.io address
+// gives it; opened any other way (a local file), it asks for owner/name too.
 const BAKED = "__KDASH_REPO__";
-const FROM_URL = BAKED === "-" ? ""
-  : /^[\w.-]+\/[\w.-]+$/.test(BAKED) ? BAKED
+const FROM_URL = /^[\w.-]+\/[\w.-]+$/.test(BAKED) ? BAKED
   : location.hostname.endsWith(".github.io") && location.pathname.split("/")[1]
   ? location.hostname.split(".")[0] + "/" + location.pathname.split("/")[1] : "";
 let REPO = "", API = "";
